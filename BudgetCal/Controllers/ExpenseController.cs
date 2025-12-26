@@ -28,12 +28,13 @@ public class ExpenseController : Controller
         var startDate = new DateTime(year, month, 1);
         var endDate = startDate.AddMonths(1).AddDays(-1);
 
+        // Get non-recurring expenses (excluding exceptions as they're handled separately)
         var expenses = _expenses
-            .Where(e => e.Date >= startDate && e.Date <= endDate)
+            .Where(e => e.Date >= startDate && e.Date <= endDate && !e.IsRecurring && !e.IsException)
             .OrderBy(e => e.Date)
             .ToList();
 
-        // Generate recurring expense instances for this month
+        // Generate recurring expense instances for this month (includes exceptions)
         var recurringExpenses = GenerateRecurringExpenses(startDate, endDate);
         expenses.AddRange(recurringExpenses);
 
@@ -164,12 +165,12 @@ public class ExpenseController : Controller
             return 0;
         }
 
-        // Calculate total expenses from start date up to and including the current date
+        // Calculate total non-recurring expenses (excluding exceptions as they're handled separately)
         var totalExpenses = _expenses
-            .Where(e => e.Date >= startDate && e.Date.Date <= date.Date)
+            .Where(e => e.Date >= startDate && e.Date.Date <= date.Date && !e.IsRecurring && !e.IsException)
             .Sum(e => e.Amount);
 
-        // Add recurring expenses up to this date
+        // Add recurring expenses up to this date (includes exceptions)
         var recurringExpenses = GenerateRecurringExpenses(startDate, date);
         var totalRecurring = recurringExpenses
             .Where(e => e.Date.Date <= date.Date)
