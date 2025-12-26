@@ -36,6 +36,7 @@
         <h3 id="modalTitle">Add Expense</h3>
         <form id="expenseForm">
             <input type="hidden" id="expenseId" />
+            <input type="hidden" id="isRecurringInstance" />
             <div class="form-group">
                 <label for="expenseDate">Date:</label>
                 <input type="date" id="expenseDate" required />
@@ -86,6 +87,34 @@
                 <button type="button" id="deleteExpenseBtn" class="btn-danger" style="display:none;">Delete</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Recurring Edit Mode Modal -->
+<div id="recurringEditModal" class="modal">
+    <div class="modal-content">
+        <h3>Edit Recurring Expense</h3>
+        <p>This is a recurring expense. How would you like to edit it?</p>
+        <div class="recurring-options">
+            <button type="button" id="editThisOne" class="btn-primary">This One Only</button>
+            <button type="button" id="editFromThisOne" class="btn-primary">This and Future Ones</button>
+            <button type="button" id="editAllInSeries" class="btn-primary">All in Series</button>
+            <button type="button" id="cancelRecurringEdit" class="btn-secondary">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Recurring Delete Mode Modal -->
+<div id="recurringDeleteModal" class="modal">
+    <div class="modal-content">
+        <h3>Delete Recurring Expense</h3>
+        <p>This is a recurring expense. How would you like to delete it?</p>
+        <div class="recurring-options">
+            <button type="button" id="deleteThisOne" class="btn-danger">This One Only</button>
+            <button type="button" id="deleteFromThisOne" class="btn-danger">This and Future Ones</button>
+            <button type="button" id="deleteAllInSeries" class="btn-danger">All in Series</button>
+            <button type="button" id="cancelRecurringDelete" class="btn-secondary">Cancel</button>
+        </div>
     </div>
 </div>
 

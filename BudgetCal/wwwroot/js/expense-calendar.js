@@ -2,6 +2,8 @@ let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth() + 1;
 let expenses = [];
 let dailyBalances = {};
+let currentExpense = null;
+let recurringEditMode = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     loadExpenses();
@@ -138,6 +140,17 @@ function createDayCell(day) {
 }
 
 function openModal(expense = null, defaultDate = null) {
+    // If editing a recurring instance, show the edit mode dialog first
+    if (expense && expense.isRecurring && expense.parentRecurringExpenseId) {
+        currentExpense = expense;
+        showRecurringEditDialog();
+        return;
+    }
+    
+    openExpenseForm(expense, defaultDate);
+}
+
+function openExpenseForm(expense = null, defaultDate = null) {
     const modal = document.getElementById('expenseModal');
     const form = document.getElementById('expenseForm');
     const deleteBtn = document.getElementById('deleteExpenseBtn');
@@ -152,6 +165,7 @@ function openModal(expense = null, defaultDate = null) {
         document.getElementById('expenseDescription').value = expense.description;
         document.getElementById('expenseCategory').value = expense.category;
         document.getElementById('isRecurring').checked = expense.isRecurring || false;
+        document.getElementById('isRecurringInstance').value = expense.parentRecurringExpenseId ? 'true' : 'false';
         if (expense.isRecurring) {
             document.getElementById('recurringInterval').value = expense.recurringInterval || 1;
             document.getElementById('recurringPeriod').value = expense.recurringPeriod || 'days';
@@ -163,6 +177,7 @@ function openModal(expense = null, defaultDate = null) {
     } else {
         document.getElementById('modalTitle').textContent = 'Add Expense';
         document.getElementById('expenseId').value = '';
+        document.getElementById('isRecurringInstance').value = 'false';
         if (defaultDate) {
             const dateStr = defaultDate.toISOString().split('T')[0];
             document.getElementById('expenseDate').value = dateStr;
@@ -173,6 +188,35 @@ function openModal(expense = null, defaultDate = null) {
     }
 
     modal.style.display = 'block';
+}
+
+function showRecurringEditDialog() {
+    const modal = document.getElementById('recurringEditModal');
+    modal.style.display = 'block';
+    
+    document.getElementById('editThisOne').onclick = () => {
+        recurringEditMode = 'ThisOne';
+        modal.style.display = 'none';
+        openExpenseForm(currentExpense);
+    };
+    
+    document.getElementById('editFromThisOne').onclick = () => {
+        recurringEditMode = 'FromThisOne';
+        modal.style.display = 'none';
+        openExpenseForm(currentExpense);
+    };
+    
+    document.getElementById('editAllInSeries').onclick = () => {
+        recurringEditMode = 'AllInSeries';
+        modal.style.display = 'none';
+        openExpenseForm(currentExpense);
+    };
+    
+    document.getElementById('cancelRecurringEdit').onclick = () => {
+        modal.style.display = 'none';
+        currentExpense = null;
+        recurringEditMode = null;
+    };
 }
 
 function closeModal() {
@@ -190,6 +234,7 @@ function saveExpense(e) {
     const expenseId = document.getElementById('expenseId').value;
     const isRecurring = document.getElementById('isRecurring').checked;
     const expenseDate = document.getElementById('expenseDate').value;
+    const isRecurringInstance = document.getElementById('isRecurringInstance').value === 'true';
     
     const expense = {
         id: expenseId ? parseInt(expenseId) : 0,
@@ -200,10 +245,17 @@ function saveExpense(e) {
         isRecurring: isRecurring,
         recurringInterval: isRecurring ? parseInt(document.getElementById('recurringInterval').value) : null,
         recurringPeriod: isRecurring ? document.getElementById('recurringPeriod').value : null,
-        recurringStartDate: isRecurring ? expenseDate : null
+        recurringStartDate: isRecurring ? expenseDate : null,
+        recurringEditMode: isRecurringInstance ? recurringEditMode : null
     };
 
-    const url = expenseId ? '/Expense/Update' : '/Expense/Create';
+    let url = expenseId ? '/Expense/Update' : '/Expense/Create';
+    
+    // If editing a recurring instance with a mode, use the special endpoint
+    if (expenseId && isRecurringInstance && recurringEditMode) {
+        url = `/Expense/UpdateRecurring?mode=${recurringEditMode}`;
+    }
+    
     const method = expenseId ? 'PUT' : 'POST';
 
     fetch(url, {
@@ -214,17 +266,68 @@ function saveExpense(e) {
     .then(response => response.json())
     .then(() => {
         closeModal();
+        recurringEditMode = null;
+        currentExpense = null;
         loadExpenses();
     });
 }
 
 function deleteExpense() {
     const expenseId = document.getElementById('expenseId').value;
-    if (!expenseId || !confirm('Are you sure you want to delete this expense?')) return;
+    const isRecurringInstance = document.getElementById('isRecurringInstance').value === 'true';
+    
+    if (!expenseId) return;
+    
+    // If it's a recurring instance, show the delete mode dialog
+    if (isRecurringInstance) {
+        showRecurringDeleteDialog(expenseId);
+        return;
+    }
+    
+    // Otherwise, just confirm and delete
+    if (!confirm('Are you sure you want to delete this expense?')) return;
 
     fetch(`/Expense/Delete?id=${expenseId}`, { method: 'DELETE' })
         .then(() => {
             closeModal();
             loadExpenses();
         });
+}
+
+function showRecurringDeleteDialog(expenseId) {
+    const modal = document.getElementById('recurringDeleteModal');
+    const expenseModal = document.getElementById('expenseModal');
+    expenseModal.style.display = 'none';
+    modal.style.display = 'block';
+    
+    document.getElementById('deleteThisOne').onclick = () => {
+        performRecurringDelete(expenseId, 'ThisOne');
+    };
+    
+    document.getElementById('deleteFromThisOne').onclick = () => {
+        performRecurringDelete(expenseId, 'FromThisOne');
+    };
+    
+    document.getElementById('deleteAllInSeries').onclick = () => {
+        performRecurringDelete(expenseId, 'AllInSeries');
+    };
+    
+    document.getElementById('cancelRecurringDelete').onclick = () => {
+        modal.style.display = 'none';
+        expenseModal.style.display = 'block';
+    };
+}
+
+function performRecurringDelete(expenseId, mode) {
+    const expense = currentExpense || expenses.find(e => e.id === parseInt(expenseId));
+    
+    fetch(`/Expense/DeleteRecurring?id=${expenseId}&mode=${mode}&date=${expense.date}`, { 
+        method: 'DELETE' 
+    })
+    .then(() => {
+        document.getElementById('recurringDeleteModal').style.display = 'none';
+        closeModal();
+        currentExpense = null;
+        loadExpenses();
+    });
 }
