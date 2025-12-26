@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BudgetCal", "BudgetCal\BudgetCal.csproj", "{44C9EA0A-ADD5-493E-9420-C7F19479424E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{44C9EA0A-ADD5-493E-9420-C7F19479424E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{44C9EA0A-ADD5-493E-9420-C7F19479424E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{44C9EA0A-ADD5-493E-9420-C7F19479424E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{44C9EA0A-ADD5-493E-9420-C7F19479424E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
