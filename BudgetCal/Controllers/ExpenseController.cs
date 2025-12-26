@@ -28,13 +28,13 @@ public class ExpenseController : Controller
         var startDate = new DateTime(year, month, 1);
         var endDate = startDate.AddMonths(1).AddDays(-1);
 
-        // Get non-recurring expenses (excluding exceptions as they're handled separately)
+        // Get only non-recurring, non-exception expenses (one-time expenses)
         var expenses = _expenses
             .Where(e => e.Date >= startDate && e.Date <= endDate && !e.IsRecurring && !e.IsException)
             .OrderBy(e => e.Date)
             .ToList();
 
-        // Generate recurring expense instances for this month (includes exceptions)
+        // Generate recurring expense instances for this month (includes exceptions and parent recurring expenses in date range)
         var recurringExpenses = GenerateRecurringExpenses(startDate, endDate);
         expenses.AddRange(recurringExpenses);
 
@@ -60,6 +60,12 @@ public class ExpenseController : Controller
             if (recurringEnd.HasValue && recurringEnd.Value < startDate)
                 continue;
 
+            // Add the parent recurring expense if it falls within the date range
+            if (recurring.Date >= startDate && recurring.Date <= endDate)
+            {
+                generatedExpenses.Add(recurring);
+            }
+
             var currentDate = recurringStart;
             
             // Advance to first occurrence in the period
@@ -81,7 +87,7 @@ public class ExpenseController : Controller
                     ex.OriginalDate.HasValue &&
                     ex.OriginalDate.Value.Date == currentDate.Date);
                 
-                // Don't duplicate the original expense or generate exceptions
+                // Don't duplicate the parent expense or generate exceptions
                 if (currentDate.Date != recurring.Date.Date && !hasException)
                 {
                     generatedExpenses.Add(new Expense
