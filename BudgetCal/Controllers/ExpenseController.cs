@@ -8,6 +8,7 @@ public class ExpenseController : Controller
     // In-memory storage for expenses (data persisted to localStorage on client side)
     private static List<Expense> _expenses = new List<Expense>();
     private static int _nextId = 1;
+    private static Dictionary<string, decimal> _balanceOverrides = new Dictionary<string, decimal>();
     private const string StorageKey = "budget_calendar_expenses";
 
     public IActionResult Index(int? year, int? month)
@@ -156,13 +157,46 @@ public class ExpenseController : Controller
     {
         var startDate = new DateTime(year, month, 1);
         var daysInMonth = DateTime.DaysInMonth(year, month);
-        var balances = new Dictionary<string, decimal>();
+        var balances = new Dictionary<string, object>();
+        
+        // Find the most recent override date before or in this month
+        DateTime? lastOverrideDate = null;
+        decimal? lastOverrideBalance = null;
+        
+        foreach (var kvp in _balanceOverrides.OrderBy(x => x.Key))
+        {
+            var overrideDate = DateTime.Parse(kvp.Key);
+            if (overrideDate <= startDate.AddMonths(1).AddDays(-1))
+            {
+                lastOverrideDate = overrideDate;
+                lastOverrideBalance = kvp.Value;
+            }
+        }
 
         for (int day = 1; day <= daysInMonth; day++)
         {
             var currentDate = new DateTime(year, month, day);
-            var balance = CalculateBalanceForDate(currentDate);
-            balances[currentDate.ToString("yyyy-MM-dd")] = balance;
+            var dateStr = currentDate.ToString("yyyy-MM-dd");
+            
+            // Check if this specific date has an override
+            if (_balanceOverrides.ContainsKey(dateStr))
+            {
+                balances[dateStr] = new { balance = _balanceOverrides[dateStr], isOverride = true };
+                lastOverrideDate = currentDate;
+                lastOverrideBalance = _balanceOverrides[dateStr];
+            }
+            else if (lastOverrideDate.HasValue && currentDate > lastOverrideDate.Value)
+            {
+                // Calculate from the last override date
+                var balance = CalculateBalanceFromDate(lastOverrideDate.Value, lastOverrideBalance!.Value, currentDate);
+                balances[dateStr] = new { balance = balance, isOverride = false };
+            }
+            else
+            {
+                // Use the original calculation
+                var balance = CalculateBalanceForDate(currentDate);
+                balances[dateStr] = new { balance = balance, isOverride = false };
+            }
         }
 
         return Json(balances);
@@ -193,6 +227,22 @@ public class ExpenseController : Controller
         return startBalance - totalExpenses - totalRecurring;
     }
 
+    private decimal CalculateBalanceFromDate(DateTime fromDate, decimal fromBalance, DateTime toDate)
+    {
+        // Calculate expenses between fromDate (exclusive) and toDate (inclusive)
+        var totalExpenses = _expenses
+            .Where(e => e.Date.Date > fromDate.Date && e.Date.Date <= toDate.Date && !e.IsRecurring && !e.IsException)
+            .Sum(e => e.Amount);
+
+        // Add recurring expenses in this range
+        var recurringExpenses = GenerateRecurringExpenses(fromDate.AddDays(1), toDate);
+        var totalRecurring = recurringExpenses
+            .Where(e => e.Date.Date > fromDate.Date && e.Date.Date <= toDate.Date)
+            .Sum(e => e.Amount);
+
+        return fromBalance - totalExpenses - totalRecurring;
+    }
+
     [HttpPost]
     public IActionResult Create([FromBody] Expense expense)
     {
@@ -202,9 +252,10 @@ public class ExpenseController : Controller
     }
     
     [HttpPost]
-    public IActionResult LoadFromStorage([FromBody] List<Expense> expenses)
+    public IActionResult LoadFromStorage([FromBody] LoadStorageRequest request)
     {
-        _expenses = expenses ?? new List<Expense>();
+        _expenses = request.Expenses ?? new List<Expense>();
+        _balanceOverrides = request.BalanceOverrides ?? new Dictionary<string, decimal>();
         if (_expenses.Any())
         {
             _nextId = _expenses.Max(e => e.Id) + 1;
@@ -216,12 +267,38 @@ public class ExpenseController : Controller
         return Json(new { success = true });
     }
     
+    [HttpGet]
+    public IActionResult GetAllData()
+    {
+        return Json(new { expenses = _expenses, balanceOverrides = _balanceOverrides });
+    }
+    
+    [HttpPost]
+    public IActionResult SetBalanceOverride([FromBody] BalanceOverrideRequest request)
+    {
+        _balanceOverrides[request.Date] = request.Balance;
+        return Json(new { success = true });
+    }
+    
     [HttpPost]
     public IActionResult ClearAll()
     {
         _expenses.Clear();
+        _balanceOverrides.Clear();
         _nextId = 1;
         return Json(new { success = true });
+    }
+
+    public class LoadStorageRequest
+    {
+        public List<Expense> Expenses { get; set; } = new List<Expense>();
+        public Dictionary<string, decimal> BalanceOverrides { get; set; } = new Dictionary<string, decimal>();
+    }
+
+    public class BalanceOverrideRequest
+    {
+        public string Date { get; set; } = string.Empty;
+        public decimal Balance { get; set; }
     }
 
     [HttpPut]

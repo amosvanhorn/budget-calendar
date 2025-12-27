@@ -4,7 +4,9 @@ let expenses = [];
 let dailyBalances = {};
 let currentExpense = null;
 let recurringEditMode = null;
-const STORAGE_KEY = 'budget_calendar_expenses';
+let balanceOverrides = {};
+let currentBalanceDate = null;
+const STORAGE_KEY = 'budget_calendar_data';
 
 document.addEventListener('DOMContentLoaded', function() {
     loadStorageToServer().then(() => {
@@ -19,17 +21,24 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('expenseForm').addEventListener('submit', saveExpense);
     document.getElementById('deleteExpenseBtn').addEventListener('click', deleteExpense);
     document.getElementById('isRecurring').addEventListener('change', toggleRecurringOptions);
+    document.getElementById('closeBalanceModal').addEventListener('click', closeBalanceModal);
+    document.getElementById('cancelBalanceBtn').addEventListener('click', closeBalanceModal);
+    document.getElementById('balanceForm').addEventListener('submit', saveBalanceOverride);
 });
 
 function loadStorageToServer() {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
         try {
-            const expenses = JSON.parse(stored);
+            const data = JSON.parse(stored);
+            balanceOverrides = data.balanceOverrides || {};
             return fetch('/Expense/LoadFromStorage', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(expenses)
+                body: JSON.stringify({
+                    expenses: data.expenses || [],
+                    balanceOverrides: data.balanceOverrides || {}
+                })
             }).then(response => response.json());
         } catch (e) {
             console.error('Error loading from storage:', e);
@@ -40,11 +49,12 @@ function loadStorageToServer() {
 }
 
 function saveToLocalStorage() {
-    // Get all expenses from server and save to localStorage
-    fetch('/Expense/GetAllExpenses')
+    // Get all data from server and save to localStorage
+    fetch('/Expense/GetAllData')
         .then(response => response.json())
-        .then(allExpenses => {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(allExpenses));
+        .then(data => {
+            balanceOverrides = data.balanceOverrides || {};
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         })
         .catch(err => console.error('Error saving to localStorage:', err));
 }
@@ -138,15 +148,25 @@ function createDayCell(day) {
     });
 
     // Add balance display
-    const balance = dailyBalances[dateStr];
+    const balanceData = dailyBalances[dateStr];
 
-    if (balance !== undefined && balance !== 0) {
+    if (balanceData !== undefined && balanceData.balance !== 0) {
+        const balance = balanceData.balance;
+        const isOverride = balanceData.isOverride;
+        
         const balanceDiv = document.createElement('div');
         balanceDiv.className = 'day-balance';
         if (balance < 0) {
             balanceDiv.classList.add('negative');
         }
+        if (isOverride) {
+            balanceDiv.classList.add('override');
+        }
         balanceDiv.textContent = `Balance: $${balance.toFixed(2)}`;
+        balanceDiv.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openBalanceModal(dateStr, balance);
+        });
         expensesContainer.appendChild(balanceDiv);
     }
 
@@ -157,6 +177,39 @@ function createDayCell(day) {
     });
 
     return cell;
+}
+
+function openBalanceModal(dateStr, currentBalance) {
+    currentBalanceDate = dateStr;
+    document.getElementById('balanceDate').textContent = dateStr;
+    document.getElementById('balanceAmount').value = currentBalance.toFixed(2);
+    document.getElementById('balanceModal').style.display = 'block';
+}
+
+function closeBalanceModal() {
+    document.getElementById('balanceModal').style.display = 'none';
+    currentBalanceDate = null;
+}
+
+function saveBalanceOverride(e) {
+    e.preventDefault();
+    
+    const balance = parseFloat(document.getElementById('balanceAmount').value);
+    
+    fetch('/Expense/SetBalanceOverride', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            date: currentBalanceDate,
+            balance: balance
+        })
+    })
+    .then(response => response.json())
+    .then(() => {
+        closeBalanceModal();
+        saveToLocalStorage();
+        loadExpenses();
+    });
 }
 
 function openModal(expense = null, defaultDate = null) {

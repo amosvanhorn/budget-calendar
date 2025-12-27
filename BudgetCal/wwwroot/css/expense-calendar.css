@@ -132,11 +132,11 @@ body {
 }
 
 .expense-category {
-    font-weight: 500;
+    font-weight: normal;
 }
 
 .expense-amount {
-    font-weight: bold;
+    font-weight: normal;
 }
 
 .day-total {
@@ -160,12 +160,32 @@ body {
     color: #2e7d32;
     text-align: right;
     border: 1px solid #a5d6a7;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.day-balance:hover {
+    background-color: #c8e6c9;
 }
 
 .day-balance.negative {
     background-color: #ffebee;
     color: #c62828;
     border: 1px solid #ef9a9a;
+}
+
+.day-balance.override {
+    border: 2px solid #ffa726;
+    font-weight: bold;
+    box-shadow: 0 0 3px rgba(255, 167, 38, 0.5);
+}
+
+.day-balance.override.negative {
+    border: 2px solid #ffa726;
+}
+
+.day-balance.override:hover {
+    box-shadow: 0 0 6px rgba(255, 167, 38, 0.8);
 }
 
 .add-expense-btn-container {
