@@ -14,6 +14,7 @@ public class Expense
     public decimal Amount { get; set; }
     public string Description { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
+    public string? Color { get; set; } = "#e3f2fd"; // Default light blue
     
     // Recurring expense properties
     public bool IsRecurring { get; set; }

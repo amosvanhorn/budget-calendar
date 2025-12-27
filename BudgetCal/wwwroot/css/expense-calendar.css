@@ -133,11 +133,9 @@ body {
 
 .expense-category {
     font-weight: 500;
-    color: #1976d2;
 }
 
 .expense-amount {
-    color: #d32f2f;
     font-weight: bold;
 }
 

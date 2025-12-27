@@ -104,6 +104,7 @@ public class ExpenseController : Controller
                         Amount = recurring.Amount,
                         Description = recurring.Description,
                         Category = recurring.Category,
+                        Color = recurring.Color,
                         IsRecurring = true,
                         RecurringInterval = recurring.RecurringInterval,
                         RecurringPeriod = recurring.RecurringPeriod,
@@ -233,6 +234,7 @@ public class ExpenseController : Controller
             existing.Amount = expense.Amount;
             existing.Description = expense.Description;
             existing.Category = expense.Category;
+            existing.Color = expense.Color;
             existing.IsRecurring = expense.IsRecurring;
             existing.RecurringInterval = expense.RecurringInterval;
             existing.RecurringPeriod = expense.RecurringPeriod;
@@ -261,6 +263,7 @@ public class ExpenseController : Controller
                     Amount = expense.Amount,
                     Description = expense.Description,
                     Category = expense.Category,
+                    Color = expense.Color,
                     IsRecurring = false,
                     IsException = true,
                     OriginalDate = expense.Date,
@@ -285,6 +288,7 @@ public class ExpenseController : Controller
                     Amount = expense.Amount,
                     Description = expense.Description,
                     Category = expense.Category,
+                    Color = expense.Color,
                     IsRecurring = true,
                     RecurringInterval = expense.RecurringInterval,
                     RecurringPeriod = expense.RecurringPeriod,
@@ -299,6 +303,7 @@ public class ExpenseController : Controller
                 parentExpense.Amount = expense.Amount;
                 parentExpense.Description = expense.Description;
                 parentExpense.Category = expense.Category;
+                parentExpense.Color = expense.Color;
                 parentExpense.RecurringInterval = expense.RecurringInterval;
                 parentExpense.RecurringPeriod = expense.RecurringPeriod;
                 // Keep the original start date

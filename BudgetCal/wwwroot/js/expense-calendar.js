@@ -123,8 +123,11 @@ function createDayCell(day) {
     dayExpenses.forEach(expense => {
         const expenseItem = document.createElement('div');
         expenseItem.className = 'expense-item';
+        const bgColor = expense.color || '#e3f2fd';
+        expenseItem.style.backgroundColor = bgColor;
+        expenseItem.style.color = getContrastColor(bgColor);
         expenseItem.innerHTML = `
-            <span class="expense-category">${expense.category}</span>
+            <span class="expense-category">${expense.description}</span>
             <span class="expense-amount">$${expense.amount.toFixed(2)}</span>
         `;
         expenseItem.addEventListener('click', (e) => {
@@ -181,6 +184,7 @@ function openExpenseForm(expense = null, defaultDate = null) {
         document.getElementById('expenseAmount').value = expense.amount;
         document.getElementById('expenseDescription').value = expense.description;
         document.getElementById('expenseCategory').value = expense.category;
+        document.getElementById('expenseColor').value = expense.color || '#e3f2fd';
         document.getElementById('isRecurring').checked = expense.isRecurring || false;
         document.getElementById('isRecurringInstance').value = expense.parentRecurringExpenseId ? 'true' : 'false';
         if (expense.isRecurring) {
@@ -195,6 +199,7 @@ function openExpenseForm(expense = null, defaultDate = null) {
         document.getElementById('modalTitle').textContent = 'Add Expense';
         document.getElementById('expenseId').value = '';
         document.getElementById('isRecurringInstance').value = 'false';
+        document.getElementById('expenseColor').value = '#e3f2fd';
         if (defaultDate) {
             const dateStr = defaultDate.toISOString().split('T')[0];
             document.getElementById('expenseDate').value = dateStr;
@@ -259,6 +264,7 @@ function saveExpense(e) {
         amount: parseFloat(document.getElementById('expenseAmount').value),
         description: document.getElementById('expenseDescription').value,
         category: document.getElementById('expenseCategory').value,
+        color: document.getElementById('expenseColor').value,
         isRecurring: isRecurring,
         recurringInterval: isRecurring ? parseInt(document.getElementById('recurringInterval').value) : null,
         recurringPeriod: isRecurring ? document.getElementById('recurringPeriod').value : null,
@@ -350,6 +356,20 @@ function performRecurringDelete(expenseId, mode) {
         saveToLocalStorage();
         loadExpenses();
     });
+}
+
+function getContrastColor(hexColor) {
+    // Convert hex to RGB
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    
+    // Calculate relative luminance using sRGB formula
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    
+    // Return white for dark colors, black for light colors
+    return luminance > 0.5 ? '#000000' : '#ffffff';
 }
 
 function clearAllData() {
