@@ -5,9 +5,10 @@ namespace BudgetCal.Controllers;
 
 public class ExpenseController : Controller
 {
-    // In-memory storage for expenses (replace with database later)
+    // In-memory storage for expenses (data persisted to localStorage on client side)
     private static List<Expense> _expenses = new List<Expense>();
     private static int _nextId = 1;
+    private const string StorageKey = "budget_calendar_expenses";
 
     public IActionResult Index(int? year, int? month)
     {
@@ -20,6 +21,12 @@ public class ExpenseController : Controller
         ViewBag.MonthName = new DateTime(selectedYear, selectedMonth, 1).ToString("MMMM yyyy");
 
         return View(_expenses);
+    }
+
+    [HttpGet]
+    public IActionResult GetAllExpenses()
+    {
+        return Json(_expenses);
     }
 
     [HttpGet]
@@ -190,7 +197,30 @@ public class ExpenseController : Controller
     {
         expense.Id = _nextId++;
         _expenses.Add(expense);
-        return Json(expense);
+        return Json(new { success = true, expense = expense });
+    }
+    
+    [HttpPost]
+    public IActionResult LoadFromStorage([FromBody] List<Expense> expenses)
+    {
+        _expenses = expenses ?? new List<Expense>();
+        if (_expenses.Any())
+        {
+            _nextId = _expenses.Max(e => e.Id) + 1;
+        }
+        else
+        {
+            _nextId = 1;
+        }
+        return Json(new { success = true });
+    }
+    
+    [HttpPost]
+    public IActionResult ClearAll()
+    {
+        _expenses.Clear();
+        _nextId = 1;
+        return Json(new { success = true });
     }
 
     [HttpPut]

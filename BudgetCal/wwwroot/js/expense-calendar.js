@@ -4,24 +4,50 @@ let expenses = [];
 let dailyBalances = {};
 let currentExpense = null;
 let recurringEditMode = null;
+const STORAGE_KEY = 'budget_calendar_expenses';
 
 document.addEventListener('DOMContentLoaded', function() {
-    loadExpenses();
+    loadStorageToServer().then(() => {
+        loadExpenses();
+    });
 
     document.getElementById('prevMonth').addEventListener('click', () => navigateMonth(-1));
     document.getElementById('nextMonth').addEventListener('click', () => navigateMonth(1));
     document.getElementById('addExpenseBtn').addEventListener('click', () => openModal());
+    document.getElementById('clearDataBtn').addEventListener('click', clearAllData);
     document.querySelector('.close').addEventListener('click', closeModal);
     document.getElementById('expenseForm').addEventListener('submit', saveExpense);
     document.getElementById('deleteExpenseBtn').addEventListener('click', deleteExpense);
     document.getElementById('isRecurring').addEventListener('change', toggleRecurringOptions);
-
-    window.addEventListener('click', (e) => {
-        if (e.target === document.getElementById('expenseModal')) {
-            closeModal();
-        }
-    });
 });
+
+function loadStorageToServer() {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+        try {
+            const expenses = JSON.parse(stored);
+            return fetch('/Expense/LoadFromStorage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(expenses)
+            }).then(response => response.json());
+        } catch (e) {
+            console.error('Error loading from storage:', e);
+            return Promise.resolve();
+        }
+    }
+    return Promise.resolve();
+}
+
+function saveToLocalStorage() {
+    // Get all expenses from server and save to localStorage
+    fetch('/Expense/GetAllExpenses')
+        .then(response => response.json())
+        .then(allExpenses => {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(allExpenses));
+        })
+        .catch(err => console.error('Error saving to localStorage:', err));
+}
 
 function navigateMonth(direction) {
     currentMonth += direction;
@@ -94,9 +120,7 @@ function createDayCell(day) {
     const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const dayExpenses = expenses.filter(e => e.date.startsWith(dateStr));
 
-    let totalAmount = 0;
     dayExpenses.forEach(expense => {
-        totalAmount += expense.amount;
         const expenseItem = document.createElement('div');
         expenseItem.className = 'expense-item';
         expenseItem.innerHTML = `
@@ -109,13 +133,6 @@ function createDayCell(day) {
         });
         expensesContainer.appendChild(expenseItem);
     });
-
-    if (totalAmount > 0) {
-        const totalDiv = document.createElement('div');
-        totalDiv.className = 'day-total';
-        totalDiv.textContent = `Total: $${totalAmount.toFixed(2)}`;
-        expensesContainer.appendChild(totalDiv);
-    }
 
     // Add balance display
     const balance = dailyBalances[dateStr];
@@ -268,6 +285,7 @@ function saveExpense(e) {
         closeModal();
         recurringEditMode = null;
         currentExpense = null;
+        saveToLocalStorage();
         loadExpenses();
     });
 }
@@ -290,6 +308,7 @@ function deleteExpense() {
     fetch(`/Expense/Delete?id=${expenseId}`, { method: 'DELETE' })
         .then(() => {
             closeModal();
+            saveToLocalStorage();
             loadExpenses();
         });
 }
@@ -328,6 +347,26 @@ function performRecurringDelete(expenseId, mode) {
         document.getElementById('recurringDeleteModal').style.display = 'none';
         closeModal();
         currentExpense = null;
+        saveToLocalStorage();
         loadExpenses();
     });
+}
+
+function clearAllData() {
+    if (!confirm('Are you sure you want to delete ALL expenses? This cannot be undone.')) {
+        return;
+    }
+    
+    fetch('/Expense/ClearAll', { method: 'POST' })
+        .then(response => response.json())
+        .then(() => {
+            localStorage.removeItem(STORAGE_KEY);
+            expenses = [];
+            dailyBalances = {};
+            loadExpenses();
+        })
+        .catch(err => {
+            console.error('Error clearing data:', err);
+            alert('Failed to clear data. Please try again.');
+        });
 }
