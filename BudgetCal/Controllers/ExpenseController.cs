@@ -104,7 +104,6 @@ public class ExpenseController : Controller
                         Date = currentDate,
                         Amount = recurring.Amount,
                         Description = recurring.Description,
-                        Category = recurring.Category,
                         Color = recurring.Color,
                         Type = recurring.Type,
                         IsRecurring = true,
@@ -138,6 +137,7 @@ public class ExpenseController : Controller
             "days" => date.AddDays(interval),
             "weeks" => date.AddDays(interval * 7),
             "months" => date.AddMonths(interval),
+            "years" => date.AddYears(interval),
             _ => date
         };
     }
@@ -149,6 +149,7 @@ public class ExpenseController : Controller
             "days" => date.AddDays(-interval),
             "weeks" => date.AddDays(-interval * 7),
             "months" => date.AddMonths(-interval),
+            "years" => date.AddYears(-interval),
             _ => date
         };
     }
@@ -327,7 +328,6 @@ public class ExpenseController : Controller
             existing.Date = item.Date;
             existing.Amount = item.Amount;
             existing.Description = item.Description;
-            existing.Category = item.Category;
             existing.Color = item.Color;
             existing.Type = item.Type;
             existing.IsRecurring = item.IsRecurring;
@@ -357,7 +357,6 @@ public class ExpenseController : Controller
                     Date = item.Date,
                     Amount = item.Amount,
                     Description = item.Description,
-                    Category = item.Category,
                     Color = item.Color,
                     Type = item.Type,
                     IsRecurring = false,
@@ -383,7 +382,6 @@ public class ExpenseController : Controller
                     Date = editDate,
                     Amount = item.Amount,
                     Description = item.Description,
-                    Category = item.Category,
                     Color = item.Color,
                     Type = item.Type,
                     IsRecurring = true,
@@ -399,7 +397,6 @@ public class ExpenseController : Controller
                 // Update the parent item entirely
                 parentItem.Amount = item.Amount;
                 parentItem.Description = item.Description;
-                parentItem.Category = item.Category;
                 parentItem.Color = item.Color;
                 parentItem.Type = item.Type;
                 parentItem.RecurringInterval = item.RecurringInterval;
@@ -442,7 +439,6 @@ public class ExpenseController : Controller
                     Date = date,
                     Amount = 0,
                     Description = "[DELETED]",
-                    Category = "System",
                     IsRecurring = false,
                     IsException = true,
                     OriginalDate = date,

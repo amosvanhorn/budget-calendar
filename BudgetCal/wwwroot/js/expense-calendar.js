@@ -23,7 +23,19 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('isRecurring').addEventListener('change', toggleRecurringOptions);
     document.getElementById('closeBalanceModal').addEventListener('click', closeBalanceModal);
     document.getElementById('cancelBalanceBtn').addEventListener('click', closeBalanceModal);
+    document.getElementById('cancelExpenseBtn').addEventListener('click', closeModal);
     document.getElementById('balanceForm').addEventListener('submit', saveBalanceOverride);
+
+    // Color picker logic
+    document.querySelectorAll('.color-square').forEach(square => {
+        square.addEventListener('click', function() {
+            if (this.classList.contains('add-color')) return;
+            
+            document.querySelectorAll('.color-square').forEach(c => c.classList.remove('selected'));
+            this.classList.add('selected');
+            document.getElementById('expenseColor').value = this.dataset.color;
+        });
+    });
 });
 
 function loadStorageToServer() {
@@ -137,7 +149,7 @@ function createDayCell(day) {
         expenseItem.style.backgroundColor = bgColor;
         expenseItem.style.color = getContrastColor(bgColor);
         expenseItem.innerHTML = `
-            <span class="expense-category">${expense.description}</span>
+            <span class="expense-description">${expense.description}</span>
             <span class="expense-amount">$${expense.amount.toFixed(2)}</span>
         `;
         expenseItem.addEventListener('click', (e) => {
@@ -230,37 +242,56 @@ function openExpenseForm(expense = null, defaultDate = null) {
 
     form.reset();
 
+    // Set header date subtitle
+    const dateToDisplay = expense ? new Date(expense.date) : (defaultDate || new Date());
+    const options = { month: 'short', day: 'numeric', year: 'numeric' };
+    document.getElementById('modalSubtitle').textContent = `Scheduled for ${dateToDisplay.toLocaleDateString('en-US', options)}`;
+
     if (expense) {
-        document.getElementById('modalTitle').textContent = 'Edit Item';
         document.getElementById('expenseId').value = expense.id;
         document.getElementById('expenseDate').value = expense.date.split('T')[0];
         document.getElementById('expenseAmount').value = expense.amount;
         document.getElementById('expenseDescription').value = expense.description;
+        
+        // Handle type selection
         document.getElementById('expenseType').value = expense.type || 'Debit';
-        document.getElementById('expenseCategory').value = expense.category;
-        document.getElementById('expenseColor').value = expense.color || '#e3f2fd';
+        
+        // Handle color selection
+        const color = expense.color || '#efebe9';
+        document.getElementById('expenseColor').value = color;
+        document.querySelectorAll('.color-square').forEach(c => {
+            if (c.dataset.color === color) c.classList.add('selected');
+            else c.classList.remove('selected');
+        });
+
         document.getElementById('isRecurring').checked = expense.isRecurring || false;
         document.getElementById('isRecurringInstance').value = expense.parentRecurringItemId ? 'true' : 'false';
         if (expense.isRecurring) {
             document.getElementById('recurringInterval').value = expense.recurringInterval || 1;
             document.getElementById('recurringPeriod').value = expense.recurringPeriod || 'days';
-            document.getElementById('recurringOptions').style.display = 'block';
+            document.getElementById('recurringOptionsInline').style.display = 'flex';
         } else {
-            document.getElementById('recurringOptions').style.display = 'none';
+            document.getElementById('recurringOptionsInline').style.display = 'none';
         }
         deleteBtn.style.display = 'inline-block';
     } else {
-        document.getElementById('modalTitle').textContent = 'Add Item';
         document.getElementById('expenseId').value = '';
         document.getElementById('isRecurringInstance').value = 'false';
         document.getElementById('expenseType').value = 'Debit';
-        document.getElementById('expenseColor').value = '#e3f2fd';
+        
+        const defaultColor = '#efebe9';
+        document.getElementById('expenseColor').value = defaultColor;
+        document.querySelectorAll('.color-square').forEach(c => {
+            if (c.dataset.color === defaultColor) c.classList.add('selected');
+            else c.classList.remove('selected');
+        });
+
         if (defaultDate) {
             const dateStr = defaultDate.toISOString().split('T')[0];
             document.getElementById('expenseDate').value = dateStr;
         }
         document.getElementById('isRecurring').checked = false;
-        document.getElementById('recurringOptions').style.display = 'none';
+        document.getElementById('recurringOptionsInline').style.display = 'none';
         deleteBtn.style.display = 'none';
     }
 
@@ -302,7 +333,7 @@ function closeModal() {
 
 function toggleRecurringOptions() {
     const isRecurring = document.getElementById('isRecurring').checked;
-    document.getElementById('recurringOptions').style.display = isRecurring ? 'block' : 'none';
+    document.getElementById('recurringOptionsInline').style.display = isRecurring ? 'flex' : 'none';
 }
 
 function saveExpense(e) {
@@ -319,7 +350,6 @@ function saveExpense(e) {
         amount: parseFloat(document.getElementById('expenseAmount').value),
         description: document.getElementById('expenseDescription').value,
         type: document.getElementById('expenseType').value,
-        category: document.getElementById('expenseCategory').value,
         color: document.getElementById('expenseColor').value,
         isRecurring: isRecurring,
         recurringInterval: isRecurring ? parseInt(document.getElementById('recurringInterval').value) : null,
@@ -414,18 +444,23 @@ function performRecurringDelete(expenseId, mode) {
     });
 }
 
+const colorTextMap = {
+    '#4caf50': '#ffffff', // Green -> White
+    '#f44336': '#ffffff', // Red -> White
+    '#00a884': '#ffffff', // Tealish -> White
+    '#2196f3': '#ffffff', // Blue -> White
+    '#ff9800': '#ffffff', // Orange -> White
+    '#9c27b0': '#ffffff', // Purple -> White
+    '#ffeb3b': '#000000', // Yellow -> Black
+    '#00bcd4': '#ffffff', // Cyan -> White
+    '#9e9e9e': '#ffffff', // Grey -> White
+    '#ffcc80': '#000000', // Light Orange -> Black
+    '#8d3d3d': '#ffffff', // Maroon -> White
+    '#efebe9': '#000000'  // Light Grey -> Black
+};
+
 function getContrastColor(hexColor) {
-    // Convert hex to RGB
-    const hex = hexColor.replace('#', '');
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
-    
-    // Calculate relative luminance using sRGB formula
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    
-    // Return white for dark colors, black for light colors
-    return luminance > 0.5 ? '#000000' : '#ffffff';
+    return colorTextMap[hexColor.toLowerCase()] || '#000000';
 }
 
 function clearAllData() {

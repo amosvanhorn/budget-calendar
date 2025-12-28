@@ -19,7 +19,6 @@ public class Item
     public DateTime Date { get; set; }
     public decimal Amount { get; set; }
     public string Description { get; set; } = string.Empty;
-    public string Category { get; set; } = string.Empty;
     public string? Color { get; set; } = "#e3f2fd"; // Default light blue
     public TransactionType Type { get; set; } = TransactionType.Debit; // Default to debit (expense)
 
