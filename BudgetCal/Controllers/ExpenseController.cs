@@ -5,11 +5,11 @@ namespace BudgetCal.Controllers;
 
 public class ExpenseController : Controller
 {
-    // In-memory storage for expenses (data persisted to localStorage on client side)
-    private static List<Expense> _expenses = new List<Expense>();
+    // In-memory storage for items (data persisted to localStorage on client side)
+    private static List<Item> _items = new List<Item>();
     private static int _nextId = 1;
     private static Dictionary<string, decimal> _balanceOverrides = new Dictionary<string, decimal>();
-    private const string StorageKey = "budget_calendar_expenses";
+    private const string StorageKey = "budget_calendar_items";
 
     public IActionResult Index(int? year, int? month)
     {
@@ -21,13 +21,13 @@ public class ExpenseController : Controller
         ViewBag.Month = selectedMonth;
         ViewBag.MonthName = new DateTime(selectedYear, selectedMonth, 1).ToString("MMMM yyyy");
 
-        return View(_expenses);
+        return View(_items);
     }
 
     [HttpGet]
     public IActionResult GetAllExpenses()
     {
-        return Json(_expenses);
+        return Json(_items);
     }
 
     [HttpGet]
@@ -36,46 +36,46 @@ public class ExpenseController : Controller
         var startDate = new DateTime(year, month, 1);
         var endDate = startDate.AddMonths(1).AddDays(-1);
 
-        // Get only non-recurring, non-exception expenses (one-time expenses)
-        var expenses = _expenses
+        // Get only non-recurring, non-exception items (one-time items)
+        var items = _items
             .Where(e => e.Date >= startDate && e.Date <= endDate && !e.IsRecurring && !e.IsException)
             .OrderBy(e => e.Date)
             .ToList();
 
-        // Generate recurring expense instances for this month (includes exceptions and parent recurring expenses in date range)
-        var recurringExpenses = GenerateRecurringExpenses(startDate, endDate);
-        expenses.AddRange(recurringExpenses);
+        // Generate recurring item instances for this month (includes exceptions and parent recurring items in date range)
+        var recurringItems = GenerateRecurringItems(startDate, endDate);
+        items.AddRange(recurringItems);
 
-        return Json(expenses.OrderBy(e => e.Date));
+        return Json(items.OrderBy(e => e.Date));
     }
 
-    private List<Expense> GenerateRecurringExpenses(DateTime startDate, DateTime endDate)
+    private List<Item> GenerateRecurringItems(DateTime startDate, DateTime endDate)
     {
-        var generatedExpenses = new List<Expense>();
-        var recurringExpenses = _expenses.Where(e => e.IsRecurring).ToList();
-        var exceptions = _expenses.Where(e => e.IsException).ToList();
+        var generatedItems = new List<Item>();
+        var recurringItems = _items.Where(e => e.IsRecurring).ToList();
+        var exceptions = _items.Where(e => e.IsException).ToList();
 
-        foreach (var recurring in recurringExpenses)
+        foreach (var recurring in recurringItems)
         {
             var recurringStart = recurring.RecurringStartDate ?? recurring.Date;
             var recurringEnd = recurring.RecurringEndDate;
-            
+
             // Only generate if the recurring start is before or within the period
             if (recurringStart > endDate)
                 continue;
-                
+
             // Skip if the series ended before this period
             if (recurringEnd.HasValue && recurringEnd.Value < startDate)
                 continue;
 
-            // Add the parent recurring expense if it falls within the date range
+            // Add the parent recurring item if it falls within the date range
             if (recurring.Date >= startDate && recurring.Date <= endDate)
             {
-                generatedExpenses.Add(recurring);
+                generatedItems.Add(recurring);
             }
 
             var currentDate = recurringStart;
-            
+
             // Advance to first occurrence in the period
             while (currentDate < startDate)
             {
@@ -88,17 +88,17 @@ public class ExpenseController : Controller
                 // Stop if we've passed the end date of this series
                 if (recurringEnd.HasValue && currentDate > recurringEnd.Value)
                     break;
-                    
+
                 // Check if this date has an exception
-                var hasException = exceptions.Any(ex => 
-                    ex.ParentRecurringExpenseId == recurring.Id && 
+                var hasException = exceptions.Any(ex =>
+                    ex.ParentRecurringItemId == recurring.Id &&
                     ex.OriginalDate.HasValue &&
                     ex.OriginalDate.Value.Date == currentDate.Date);
-                
-                // Don't duplicate the parent expense or generate exceptions
+
+                // Don't duplicate the parent item or generate exceptions
                 if (currentDate.Date != recurring.Date.Date && !hasException)
                 {
-                    generatedExpenses.Add(new Expense
+                    generatedItems.Add(new Item
                     {
                         Id = recurring.Id, // Use same ID to link to parent
                         Date = currentDate,
@@ -106,28 +106,29 @@ public class ExpenseController : Controller
                         Description = recurring.Description,
                         Category = recurring.Category,
                         Color = recurring.Color,
+                        Type = recurring.Type,
                         IsRecurring = true,
                         RecurringInterval = recurring.RecurringInterval,
                         RecurringPeriod = recurring.RecurringPeriod,
                         RecurringStartDate = recurring.RecurringStartDate,
                         RecurringEndDate = recurring.RecurringEndDate,
-                        ParentRecurringExpenseId = recurring.Id
+                        ParentRecurringItemId = recurring.Id
                     });
                 }
-                
+
                 currentDate = AddRecurringInterval(currentDate, recurring.RecurringInterval!.Value, recurring.RecurringPeriod!);
             }
         }
-        
+
         // Add non-deleted exceptions
         var validExceptions = exceptions
-            .Where(e => e.Description != "[DELETED]" && 
-                        e.Date >= startDate && 
+            .Where(e => e.Description != "[DELETED]" &&
+                        e.Date >= startDate &&
                         e.Date <= endDate)
             .ToList();
-        generatedExpenses.AddRange(validExceptions);
+        generatedItems.AddRange(validExceptions);
 
-        return generatedExpenses;
+        return generatedItems;
     }
 
     private DateTime AddRecurringInterval(DateTime date, int interval, string period)
@@ -213,52 +214,68 @@ public class ExpenseController : Controller
             return 0;
         }
 
-        // Calculate total non-recurring expenses (excluding exceptions as they're handled separately)
-        var totalExpenses = _expenses
-            .Where(e => e.Date >= startDate && e.Date.Date <= date.Date && !e.IsRecurring && !e.IsException)
+        // Calculate total non-recurring items (excluding exceptions as they're handled separately)
+        var totalDebits = _items
+            .Where(e => e.Date >= startDate && e.Date.Date <= date.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Debit)
             .Sum(e => e.Amount);
 
-        // Add recurring expenses up to this date (includes exceptions)
-        var recurringExpenses = GenerateRecurringExpenses(startDate, date);
-        var totalRecurring = recurringExpenses
-            .Where(e => e.Date.Date <= date.Date)
+        var totalCredits = _items
+            .Where(e => e.Date >= startDate && e.Date.Date <= date.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Credit)
             .Sum(e => e.Amount);
 
-        return startBalance - totalExpenses - totalRecurring;
+        // Add recurring items up to this date (includes exceptions)
+        var recurringItems = GenerateRecurringItems(startDate, date);
+        var totalRecurringDebits = recurringItems
+            .Where(e => e.Date.Date <= date.Date && e.Type == TransactionType.Debit)
+            .Sum(e => e.Amount);
+
+        var totalRecurringCredits = recurringItems
+            .Where(e => e.Date.Date <= date.Date && e.Type == TransactionType.Credit)
+            .Sum(e => e.Amount);
+
+        return startBalance - totalDebits - totalRecurringDebits + totalCredits + totalRecurringCredits;
     }
 
     private decimal CalculateBalanceFromDate(DateTime fromDate, decimal fromBalance, DateTime toDate)
     {
-        // Calculate expenses between fromDate (exclusive) and toDate (inclusive)
-        var totalExpenses = _expenses
-            .Where(e => e.Date.Date > fromDate.Date && e.Date.Date <= toDate.Date && !e.IsRecurring && !e.IsException)
+        // Calculate items between fromDate (exclusive) and toDate (inclusive)
+        var totalDebits = _items
+            .Where(e => e.Date.Date > fromDate.Date && e.Date.Date <= toDate.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Debit)
             .Sum(e => e.Amount);
 
-        // Add recurring expenses in this range
-        var recurringExpenses = GenerateRecurringExpenses(fromDate.AddDays(1), toDate);
-        var totalRecurring = recurringExpenses
-            .Where(e => e.Date.Date > fromDate.Date && e.Date.Date <= toDate.Date)
+        var totalCredits = _items
+            .Where(e => e.Date.Date > fromDate.Date && e.Date.Date <= toDate.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Credit)
             .Sum(e => e.Amount);
 
-        return fromBalance - totalExpenses - totalRecurring;
+        // Add recurring items in this range
+        var recurringItems = GenerateRecurringItems(fromDate.AddDays(1), toDate);
+        var totalRecurringDebits = recurringItems
+            .Where(e => e.Date.Date > fromDate.Date && e.Date.Date <= toDate.Date && e.Type == TransactionType.Debit)
+            .Sum(e => e.Amount);
+
+        var totalRecurringCredits = recurringItems
+            .Where(e => e.Date.Date > fromDate.Date && e.Date.Date <= toDate.Date && e.Type == TransactionType.Credit)
+            .Sum(e => e.Amount);
+
+        return fromBalance - totalDebits - totalRecurringDebits + totalCredits + totalRecurringCredits;
     }
 
     [HttpPost]
-    public IActionResult Create([FromBody] Expense expense)
+    public IActionResult Create([FromBody] Item item)
     {
-        expense.Id = _nextId++;
-        _expenses.Add(expense);
-        return Json(new { success = true, expense = expense });
+        item.Id = _nextId++;
+        _items.Add(item);
+        return Json(new { success = true, expense = item });
     }
-    
+
     [HttpPost]
     public IActionResult LoadFromStorage([FromBody] LoadStorageRequest request)
     {
-        _expenses = request.Expenses ?? new List<Expense>();
+        _items = request.Items ?? new List<Item>();
         _balanceOverrides = request.BalanceOverrides ?? new Dictionary<string, decimal>();
-        if (_expenses.Any())
+        if (_items.Any())
         {
-            _nextId = _expenses.Max(e => e.Id) + 1;
+            _nextId = _items.Max(e => e.Id) + 1;
         }
         else
         {
@@ -266,24 +283,24 @@ public class ExpenseController : Controller
         }
         return Json(new { success = true });
     }
-    
+
     [HttpGet]
     public IActionResult GetAllData()
     {
-        return Json(new { expenses = _expenses, balanceOverrides = _balanceOverrides });
+        return Json(new { expenses = _items, balanceOverrides = _balanceOverrides });
     }
-    
+
     [HttpPost]
     public IActionResult SetBalanceOverride([FromBody] BalanceOverrideRequest request)
     {
         _balanceOverrides[request.Date] = request.Balance;
         return Json(new { success = true });
     }
-    
+
     [HttpPost]
     public IActionResult ClearAll()
     {
-        _expenses.Clear();
+        _items.Clear();
         _balanceOverrides.Clear();
         _nextId = 1;
         return Json(new { success = true });
@@ -291,7 +308,7 @@ public class ExpenseController : Controller
 
     public class LoadStorageRequest
     {
-        public List<Expense> Expenses { get; set; } = new List<Expense>();
+        public List<Item> Items { get; set; } = new List<Item>();
         public Dictionary<string, decimal> BalanceOverrides { get; set; } = new Dictionary<string, decimal>();
     }
 
@@ -302,90 +319,94 @@ public class ExpenseController : Controller
     }
 
     [HttpPut]
-    public IActionResult Update([FromBody] Expense expense)
+    public IActionResult Update([FromBody] Item item)
     {
-        var existing = _expenses.FirstOrDefault(e => e.Id == expense.Id);
+        var existing = _items.FirstOrDefault(e => e.Id == item.Id);
         if (existing != null)
         {
-            existing.Date = expense.Date;
-            existing.Amount = expense.Amount;
-            existing.Description = expense.Description;
-            existing.Category = expense.Category;
-            existing.Color = expense.Color;
-            existing.IsRecurring = expense.IsRecurring;
-            existing.RecurringInterval = expense.RecurringInterval;
-            existing.RecurringPeriod = expense.RecurringPeriod;
-            existing.RecurringStartDate = expense.RecurringStartDate;
+            existing.Date = item.Date;
+            existing.Amount = item.Amount;
+            existing.Description = item.Description;
+            existing.Category = item.Category;
+            existing.Color = item.Color;
+            existing.Type = item.Type;
+            existing.IsRecurring = item.IsRecurring;
+            existing.RecurringInterval = item.RecurringInterval;
+            existing.RecurringPeriod = item.RecurringPeriod;
+            existing.RecurringStartDate = item.RecurringStartDate;
             return Json(existing);
         }
         return NotFound();
     }
 
     [HttpPut]
-    public IActionResult UpdateRecurring([FromBody] Expense expense, [FromQuery] string mode)
+    public IActionResult UpdateRecurring([FromBody] Item item, [FromQuery] string mode)
     {
-        var parentExpense = _expenses.FirstOrDefault(e => e.Id == expense.Id);
-        if (parentExpense == null) return NotFound();
+        var parentItem = _items.FirstOrDefault(e => e.Id == item.Id);
+        if (parentItem == null) return NotFound();
 
         var editMode = Enum.Parse<RecurringEditMode>(mode);
-        
+
         switch (editMode)
         {
             case RecurringEditMode.ThisOne:
-                // Create a new expense as an exception for this single instance
-                var exception = new Expense
+                // Create a new item as an exception for this single instance
+                var exception = new Item
                 {
                     Id = _nextId++,
-                    Date = expense.Date,
-                    Amount = expense.Amount,
-                    Description = expense.Description,
-                    Category = expense.Category,
-                    Color = expense.Color,
+                    Date = item.Date,
+                    Amount = item.Amount,
+                    Description = item.Description,
+                    Category = item.Category,
+                    Color = item.Color,
+                    Type = item.Type,
                     IsRecurring = false,
                     IsException = true,
-                    OriginalDate = expense.Date,
-                    ParentRecurringExpenseId = parentExpense.Id
+                    OriginalDate = item.Date,
+                    ParentRecurringItemId = parentItem.Id
                 };
-                _expenses.Add(exception);
+                _items.Add(exception);
                 return Json(exception);
-                
+
             case RecurringEditMode.FromThisOne:
                 // End the original series one interval before this date
-                var editDate = expense.Date;
-                var previousDate = SubtractRecurringInterval(editDate, 
-                    parentExpense.RecurringInterval!.Value, 
-                    parentExpense.RecurringPeriod!);
-                parentExpense.RecurringEndDate = previousDate;
-                
+                var editDate = item.Date;
+                var previousDate = SubtractRecurringInterval(editDate,
+                    parentItem.RecurringInterval!.Value,
+                    parentItem.RecurringPeriod!);
+                parentItem.RecurringEndDate = previousDate;
+
                 // Create a new recurring series starting from this date
-                var newSeries = new Expense
+                var newSeries = new Item
                 {
                     Id = _nextId++,
                     Date = editDate,
-                    Amount = expense.Amount,
-                    Description = expense.Description,
-                    Category = expense.Category,
-                    Color = expense.Color,
+                    Amount = item.Amount,
+                    Description = item.Description,
+                    Category = item.Category,
+                    Color = item.Color,
+                    Type = item.Type,
                     IsRecurring = true,
-                    RecurringInterval = expense.RecurringInterval,
-                    RecurringPeriod = expense.RecurringPeriod,
+                    RecurringInterval = item.RecurringInterval,
+                    RecurringPeriod = item.RecurringPeriod,
                     RecurringStartDate = editDate,
                     RecurringEndDate = null
                 };
-                _expenses.Add(newSeries);
+                _items.Add(newSeries);
                 return Json(newSeries);
-                
+
             case RecurringEditMode.AllInSeries:
-                // Update the parent expense entirely
-                parentExpense.Amount = expense.Amount;
-                parentExpense.Description = expense.Description;
-                parentExpense.Category = expense.Category;
-                parentExpense.Color = expense.Color;
-                parentExpense.RecurringInterval = expense.RecurringInterval;
-                parentExpense.RecurringPeriod = expense.RecurringPeriod;
+                // Update the parent item entirely
+                parentItem.Amount = item.Amount;
+                parentItem.Description = item.Description;
+                parentItem.Category = item.Category;
+                parentItem.Color = item.Color;
+                parentItem.Type = item.Type;
+                parentItem.RecurringInterval = item.RecurringInterval;
+                parentItem.RecurringPeriod = item.RecurringPeriod;
                 // Keep the original start date
-                return Json(parentExpense);
-                
+                return Json(parentItem);
+
             default:
                 return BadRequest("Invalid edit mode");
         }
@@ -394,10 +415,10 @@ public class ExpenseController : Controller
     [HttpDelete]
     public IActionResult Delete(int id)
     {
-        var expense = _expenses.FirstOrDefault(e => e.Id == id);
-        if (expense != null)
+        var item = _items.FirstOrDefault(e => e.Id == id);
+        if (item != null)
         {
-            _expenses.Remove(expense);
+            _items.Remove(item);
             return Ok();
         }
         return NotFound();
@@ -406,16 +427,16 @@ public class ExpenseController : Controller
     [HttpDelete]
     public IActionResult DeleteRecurring(int id, string mode, DateTime date)
     {
-        var parentExpense = _expenses.FirstOrDefault(e => e.Id == id);
-        if (parentExpense == null) return NotFound();
+        var parentItem = _items.FirstOrDefault(e => e.Id == id);
+        if (parentItem == null) return NotFound();
 
         var deleteMode = Enum.Parse<RecurringEditMode>(mode);
-        
+
         switch (deleteMode)
         {
             case RecurringEditMode.ThisOne:
                 // Create an exception marker for this date (so it won't generate)
-                var exception = new Expense
+                var exception = new Item
                 {
                     Id = _nextId++,
                     Date = date,
@@ -425,27 +446,27 @@ public class ExpenseController : Controller
                     IsRecurring = false,
                     IsException = true,
                     OriginalDate = date,
-                    ParentRecurringExpenseId = parentExpense.Id
+                    ParentRecurringItemId = parentItem.Id
                 };
-                _expenses.Add(exception);
+                _items.Add(exception);
                 return Ok();
-                
+
             case RecurringEditMode.FromThisOne:
                 // End the original series one interval before this date
                 var deleteDate = date;
-                var previousDate = SubtractRecurringInterval(deleteDate, 
-                    parentExpense.RecurringInterval!.Value, 
-                    parentExpense.RecurringPeriod!);
-                parentExpense.RecurringEndDate = previousDate;
+                var previousDate = SubtractRecurringInterval(deleteDate,
+                    parentItem.RecurringInterval!.Value,
+                    parentItem.RecurringPeriod!);
+                parentItem.RecurringEndDate = previousDate;
                 return Ok();
-                
+
             case RecurringEditMode.AllInSeries:
                 // Delete the entire series
-                _expenses.Remove(parentExpense);
+                _items.Remove(parentItem);
                 // Also remove any exceptions
-                _expenses.RemoveAll(e => e.ParentRecurringExpenseId == id);
+                _items.RemoveAll(e => e.ParentRecurringItemId == id);
                 return Ok();
-                
+
             default:
                 return BadRequest("Invalid delete mode");
         }

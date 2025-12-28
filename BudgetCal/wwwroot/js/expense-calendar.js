@@ -36,7 +36,7 @@ function loadStorageToServer() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    expenses: data.expenses || [],
+                    items: data.expenses || [],
                     balanceOverrides: data.balanceOverrides || {}
                 })
             }).then(response => response.json());
@@ -214,12 +214,12 @@ function saveBalanceOverride(e) {
 
 function openModal(expense = null, defaultDate = null) {
     // If editing a recurring instance, show the edit mode dialog first
-    if (expense && expense.isRecurring && expense.parentRecurringExpenseId) {
+    if (expense && expense.isRecurring && expense.parentRecurringItemId) {
         currentExpense = expense;
         showRecurringEditDialog();
         return;
     }
-    
+
     openExpenseForm(expense, defaultDate);
 }
 
@@ -231,15 +231,16 @@ function openExpenseForm(expense = null, defaultDate = null) {
     form.reset();
 
     if (expense) {
-        document.getElementById('modalTitle').textContent = 'Edit Expense';
+        document.getElementById('modalTitle').textContent = 'Edit Item';
         document.getElementById('expenseId').value = expense.id;
         document.getElementById('expenseDate').value = expense.date.split('T')[0];
         document.getElementById('expenseAmount').value = expense.amount;
         document.getElementById('expenseDescription').value = expense.description;
+        document.getElementById('expenseType').value = expense.type || 'Debit';
         document.getElementById('expenseCategory').value = expense.category;
         document.getElementById('expenseColor').value = expense.color || '#e3f2fd';
         document.getElementById('isRecurring').checked = expense.isRecurring || false;
-        document.getElementById('isRecurringInstance').value = expense.parentRecurringExpenseId ? 'true' : 'false';
+        document.getElementById('isRecurringInstance').value = expense.parentRecurringItemId ? 'true' : 'false';
         if (expense.isRecurring) {
             document.getElementById('recurringInterval').value = expense.recurringInterval || 1;
             document.getElementById('recurringPeriod').value = expense.recurringPeriod || 'days';
@@ -249,9 +250,10 @@ function openExpenseForm(expense = null, defaultDate = null) {
         }
         deleteBtn.style.display = 'inline-block';
     } else {
-        document.getElementById('modalTitle').textContent = 'Add Expense';
+        document.getElementById('modalTitle').textContent = 'Add Item';
         document.getElementById('expenseId').value = '';
         document.getElementById('isRecurringInstance').value = 'false';
+        document.getElementById('expenseType').value = 'Debit';
         document.getElementById('expenseColor').value = '#e3f2fd';
         if (defaultDate) {
             const dateStr = defaultDate.toISOString().split('T')[0];
@@ -310,12 +312,13 @@ function saveExpense(e) {
     const isRecurring = document.getElementById('isRecurring').checked;
     const expenseDate = document.getElementById('expenseDate').value;
     const isRecurringInstance = document.getElementById('isRecurringInstance').value === 'true';
-    
+
     const expense = {
         id: expenseId ? parseInt(expenseId) : 0,
         date: expenseDate,
         amount: parseFloat(document.getElementById('expenseAmount').value),
         description: document.getElementById('expenseDescription').value,
+        type: document.getElementById('expenseType').value,
         category: document.getElementById('expenseCategory').value,
         color: document.getElementById('expenseColor').value,
         isRecurring: isRecurring,
@@ -326,12 +329,12 @@ function saveExpense(e) {
     };
 
     let url = expenseId ? '/Expense/Update' : '/Expense/Create';
-    
+
     // If editing a recurring instance with a mode, use the special endpoint
     if (expenseId && isRecurringInstance && recurringEditMode) {
         url = `/Expense/UpdateRecurring?mode=${recurringEditMode}`;
     }
-    
+
     const method = expenseId ? 'PUT' : 'POST';
 
     fetch(url, {
@@ -362,7 +365,7 @@ function deleteExpense() {
     }
     
     // Otherwise, just confirm and delete
-    if (!confirm('Are you sure you want to delete this expense?')) return;
+    if (!confirm('Are you sure you want to delete this item?')) return;
 
     fetch(`/Expense/Delete?id=${expenseId}`, { method: 'DELETE' })
         .then(() => {
@@ -426,10 +429,10 @@ function getContrastColor(hexColor) {
 }
 
 function clearAllData() {
-    if (!confirm('Are you sure you want to delete ALL expenses? This cannot be undone.')) {
+    if (!confirm('Are you sure you want to delete ALL items? This cannot be undone.')) {
         return;
     }
-    
+
     fetch('/Expense/ClearAll', { method: 'POST' })
         .then(response => response.json())
         .then(() => {

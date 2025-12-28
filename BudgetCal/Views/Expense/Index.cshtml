@@ -1,7 +1,7 @@
-@model List<BudgetCal.Models.Expense>
+@model List<BudgetCal.Models.Item>
 
 @{
-    ViewData["Title"] = "Expense Tracker";
+    ViewData["Title"] = "Budget Calendar";
 }
 
 <div class="expense-tracker">
@@ -28,15 +28,15 @@
     </div>
 
     <div class="add-expense-btn-container">
-        <button id="addExpenseBtn" class="btn-primary">+ Add Expense</button>
+        <button id="addExpenseBtn" class="btn-primary">+ Add Item</button>
     </div>
 </div>
 
-<!-- Expense Modal -->
+<!-- Item Modal -->
 <div id="expenseModal" class="modal">
     <div class="modal-content">
         <span class="close">&times;</span>
-        <h3 id="modalTitle">Add Expense</h3>
+        <h3 id="modalTitle">Add Item</h3>
         <form id="expenseForm">
             <input type="hidden" id="expenseId" />
             <input type="hidden" id="isRecurringInstance" />
@@ -53,6 +53,13 @@
                 <input type="text" id="expenseDescription" required />
             </div>
             <div class="form-group">
+                <label for="expenseType">Type:</label>
+                <select id="expenseType" required>
+                    <option value="Debit">Debit (Expense)</option>
+                    <option value="Credit">Credit (Income)</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label for="expenseCategory">Category:</label>
                 <select id="expenseCategory" required>
                     <option value="">Select category</option>
@@ -62,6 +69,7 @@
                     <option value="Utilities">Utilities</option>
                     <option value="Healthcare">Healthcare</option>
                     <option value="Shopping">Shopping</option>
+                    <option value="Salary">Salary</option>
                     <option value="Other">Other</option>
                 </select>
             </div>
@@ -72,7 +80,7 @@
             <div class="form-group">
                 <label>
                     <input type="checkbox" id="isRecurring" />
-                    Recurring Expense
+                    Recurring Item
                 </label>
             </div>
             <div id="recurringOptions" style="display: none;">
@@ -100,8 +108,8 @@
 <!-- Recurring Edit Mode Modal -->
 <div id="recurringEditModal" class="modal">
     <div class="modal-content">
-        <h3>Edit Recurring Expense</h3>
-        <p>This is a recurring expense. How would you like to edit it?</p>
+        <h3>Edit Recurring Item</h3>
+        <p>This is a recurring item. How would you like to edit it?</p>
         <div class="recurring-options">
             <button type="button" id="editThisOne" class="btn-primary">This One Only</button>
             <button type="button" id="editFromThisOne" class="btn-primary">This and Future Ones</button>
@@ -114,8 +122,8 @@
 <!-- Recurring Delete Mode Modal -->
 <div id="recurringDeleteModal" class="modal">
     <div class="modal-content">
-        <h3>Delete Recurring Expense</h3>
-        <p>This is a recurring expense. How would you like to delete it?</p>
+        <h3>Delete Recurring Item</h3>
+        <p>This is a recurring item. How would you like to delete it?</p>
         <div class="recurring-options">
             <button type="button" id="deleteThisOne" class="btn-danger">This One Only</button>
             <button type="button" id="deleteFromThisOne" class="btn-danger">This and Future Ones</button>
