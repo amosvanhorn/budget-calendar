@@ -2,6 +2,7 @@ let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth() + 1;
 let expenses = [];
 let layers = [];
+let defaultLayerActive = true;
 let dailyBalances = {};
 let currentExpense = null;
 let recurringEditMode = null;
@@ -62,6 +63,7 @@ function loadStorageToServer() {
         try {
             const data = JSON.parse(stored);
             balanceOverrides = data.balanceOverrides || {};
+            defaultLayerActive = data.defaultLayerActive !== undefined ? data.defaultLayerActive : true;
             return fetch('/Expense/LoadFromStorage', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -85,7 +87,11 @@ function saveToLocalStorage() {
         .then(response => response.json())
         .then(data => {
             balanceOverrides = data.balanceOverrides || {};
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            const storageData = {
+                ...data,
+                defaultLayerActive: defaultLayerActive
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(storageData));
         })
         .catch(err => console.error('Error saving to localStorage:', err));
 }
@@ -104,8 +110,8 @@ function navigateMonth(direction) {
 
 function loadExpenses() {
     Promise.all([
-        fetch(`/Expense/GetExpenses?year=${currentYear}&month=${currentMonth}`).then(r => r.json()),
-        fetch(`/Expense/GetDailyBalances?year=${currentYear}&month=${currentMonth}`).then(r => r.json()),
+        fetch(`/Expense/GetExpenses?year=${currentYear}&month=${currentMonth}&defaultActive=${defaultLayerActive}`).then(r => r.json()),
+        fetch(`/Expense/GetDailyBalances?year=${currentYear}&month=${currentMonth}&defaultActive=${defaultLayerActive}`).then(r => r.json()),
         fetch(`/Expense/GetLayers`).then(r => r.json())
     ])
     .then(([expensesData, balancesData, layersData]) => {
@@ -604,6 +610,20 @@ function renderLayers() {
     const list = document.getElementById('layersList');
     list.innerHTML = '';
     
+    // Add "Default" layer
+    const defaultItem = document.createElement('div');
+    defaultItem.className = `layer-item ${defaultLayerActive ? 'active' : ''} default-layer`;
+    defaultItem.innerHTML = `
+        <div class="layer-toggle"></div>
+        <span class="layer-name">Default</span>
+    `;
+    defaultItem.addEventListener('click', () => {
+        defaultLayerActive = !defaultLayerActive;
+        saveToLocalStorage();
+        loadExpenses();
+    });
+    list.appendChild(defaultItem);
+
     layers.forEach(layer => {
         const item = document.createElement('div');
         item.className = `layer-item ${layer.isActive ? 'active' : ''}`;

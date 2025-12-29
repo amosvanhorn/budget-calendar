@@ -33,7 +33,7 @@ public class ExpenseController : Controller
     }
 
     [HttpGet]
-    public IActionResult GetExpenses(int year, int month)
+    public IActionResult GetExpenses(int year, int month, bool defaultActive = true)
     {
         var startDate = new DateTime(year, month, 1);
         var endDate = startDate.AddMonths(1).AddDays(-1);
@@ -43,30 +43,30 @@ public class ExpenseController : Controller
         // Get only non-recurring, non-exception items (one-time items)
         var items = _items
             .Where(e => e.Date >= startDate && e.Date <= endDate && !e.IsRecurring && !e.IsException)
-            .Where(e => !e.LayerId.HasValue || activeLayerIds.Contains(e.LayerId))
+            .Where(e => (e.LayerId.HasValue && activeLayerIds.Contains(e.LayerId)) || (!e.LayerId.HasValue && defaultActive))
             .OrderBy(e => e.Date)
             .ToList();
 
-        // Generate recurring item instances for this month (includes exceptions and parent recurring items in date range)
-        var recurringItems = GenerateRecurringItems(startDate, endDate);
+        // Generate recurring item instances for this month
+        var recurringItems = GenerateRecurringItems(startDate, endDate, defaultActive);
         items.AddRange(recurringItems);
 
         return Json(items.OrderBy(e => e.Date));
     }
 
-    private List<Item> GenerateRecurringItems(DateTime startDate, DateTime endDate)
+    private List<Item> GenerateRecurringItems(DateTime startDate, DateTime endDate, bool defaultActive = true)
     {
         var generatedItems = new List<Item>();
         var activeLayerIds = _layers.Where(l => l.IsActive).Select(l => (int?)l.Id).ToHashSet();
 
         var recurringItems = _items
             .Where(e => e.IsRecurring)
-            .Where(e => !e.LayerId.HasValue || activeLayerIds.Contains(e.LayerId))
+            .Where(e => (e.LayerId.HasValue && activeLayerIds.Contains(e.LayerId)) || (!e.LayerId.HasValue && defaultActive))
             .ToList();
         
         var exceptions = _items
             .Where(e => e.IsException)
-            .Where(e => !e.LayerId.HasValue || activeLayerIds.Contains(e.LayerId))
+            .Where(e => (e.LayerId.HasValue && activeLayerIds.Contains(e.LayerId)) || (!e.LayerId.HasValue && defaultActive))
             .ToList();
 
         foreach (var recurring in recurringItems)
@@ -179,7 +179,7 @@ public class ExpenseController : Controller
     }
 
     [HttpGet]
-    public IActionResult GetDailyBalances(int year, int month)
+    public IActionResult GetDailyBalances(int year, int month, bool defaultActive = true)
     {
         var startDate = new DateTime(year, month, 1);
         var daysInMonth = DateTime.DaysInMonth(year, month);
@@ -214,13 +214,13 @@ public class ExpenseController : Controller
             else if (lastOverrideDate.HasValue && currentDate > lastOverrideDate.Value)
             {
                 // Calculate from the last override date
-                var balance = CalculateBalanceFromDate(lastOverrideDate.Value, lastOverrideBalance!.Value, currentDate);
+                var balance = CalculateBalanceFromDate(lastOverrideDate.Value, lastOverrideBalance!.Value, currentDate, defaultActive);
                 balances[dateStr] = new { balance = balance, isOverride = false };
             }
             else
             {
                 // Use the original calculation
-                var balance = CalculateBalanceForDate(currentDate);
+                var balance = CalculateBalanceForDate(currentDate, defaultActive);
                 balances[dateStr] = new { balance = balance, isOverride = false };
             }
         }
@@ -228,7 +228,7 @@ public class ExpenseController : Controller
         return Json(balances);
     }
 
-    private decimal CalculateBalanceForDate(DateTime date)
+    private decimal CalculateBalanceForDate(DateTime date, bool defaultActive = true)
     {
         var startDate = AccountBalance.StartDate;
         var startBalance = AccountBalance.StartingBalance;
@@ -239,17 +239,21 @@ public class ExpenseController : Controller
             return 0;
         }
 
-        // Calculate total non-recurring items (excluding exceptions as they're handled separately)
+        var activeLayerIds = _layers.Where(l => l.IsActive).Select(l => (int?)l.Id).ToHashSet();
+
+        // Calculate total non-recurring items
         var totalDebits = _items
             .Where(e => e.Date >= startDate && e.Date.Date <= date.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Debit)
+            .Where(e => (e.LayerId.HasValue && activeLayerIds.Contains(e.LayerId)) || (!e.LayerId.HasValue && defaultActive))
             .Sum(e => e.Amount);
 
         var totalCredits = _items
             .Where(e => e.Date >= startDate && e.Date.Date <= date.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Credit)
+            .Where(e => (e.LayerId.HasValue && activeLayerIds.Contains(e.LayerId)) || (!e.LayerId.HasValue && defaultActive))
             .Sum(e => e.Amount);
 
         // Add recurring items up to this date (includes exceptions)
-        var recurringItems = GenerateRecurringItems(startDate, date);
+        var recurringItems = GenerateRecurringItems(startDate, date, defaultActive);
         var totalRecurringDebits = recurringItems
             .Where(e => e.Date.Date <= date.Date && e.Type == TransactionType.Debit)
             .Sum(e => e.Amount);
@@ -261,19 +265,23 @@ public class ExpenseController : Controller
         return startBalance - totalDebits - totalRecurringDebits + totalCredits + totalRecurringCredits;
     }
 
-    private decimal CalculateBalanceFromDate(DateTime fromDate, decimal fromBalance, DateTime toDate)
+    private decimal CalculateBalanceFromDate(DateTime fromDate, decimal fromBalance, DateTime toDate, bool defaultActive = true)
     {
+        var activeLayerIds = _layers.Where(l => l.IsActive).Select(l => (int?)l.Id).ToHashSet();
+
         // Calculate items between fromDate (exclusive) and toDate (inclusive)
         var totalDebits = _items
             .Where(e => e.Date.Date > fromDate.Date && e.Date.Date <= toDate.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Debit)
+            .Where(e => (e.LayerId.HasValue && activeLayerIds.Contains(e.LayerId)) || (!e.LayerId.HasValue && defaultActive))
             .Sum(e => e.Amount);
 
         var totalCredits = _items
             .Where(e => e.Date.Date > fromDate.Date && e.Date.Date <= toDate.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Credit)
+            .Where(e => (e.LayerId.HasValue && activeLayerIds.Contains(e.LayerId)) || (!e.LayerId.HasValue && defaultActive))
             .Sum(e => e.Amount);
 
         // Add recurring items in this range
-        var recurringItems = GenerateRecurringItems(fromDate.AddDays(1), toDate);
+        var recurringItems = GenerateRecurringItems(fromDate.AddDays(1), toDate, defaultActive);
         var totalRecurringDebits = recurringItems
             .Where(e => e.Date.Date > fromDate.Date && e.Date.Date <= toDate.Date && e.Type == TransactionType.Debit)
             .Sum(e => e.Amount);
