@@ -636,7 +636,55 @@ body {
     background-color: #b91c1c;
 }
 
-/* Recurring options styling */
+/* Recurring Options Modern */
+.recurring-options-modern {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.btn-option {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    padding: 12px 16px;
+    text-align: left;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.btn-option:hover {
+    background-color: #f8fafc;
+    border-color: #2196f3;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.btn-option.danger:hover {
+    border-color: #ef4444;
+    background-color: #fff1f2;
+}
+
+.option-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 2px;
+}
+
+.btn-option.danger .option-title {
+    color: #991b1b;
+}
+
+.option-desc {
+    font-size: 12px;
+    color: #64748b;
+}
+
+/* Recurring options styling (Old - Keep for legacy if needed, or remove) */
 .recurring-options {
     display: flex;
     flex-direction: column;

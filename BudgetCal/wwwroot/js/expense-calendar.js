@@ -21,6 +21,14 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('deleteExpenseBtn').addEventListener('click', deleteExpense);
     document.getElementById('isRecurring').addEventListener('change', toggleRecurringOptions);
     document.getElementById('closeBalanceModal').addEventListener('click', closeBalanceModal);
+    document.getElementById('closeRecurringEditModal').addEventListener('click', () => {
+        document.getElementById('recurringEditModal').style.display = 'none';
+        currentExpense = null;
+    });
+    document.getElementById('closeRecurringDeleteModal').addEventListener('click', () => {
+        document.getElementById('recurringDeleteModal').style.display = 'none';
+        document.getElementById('expenseModal').style.display = 'block';
+    });
     document.getElementById('cancelBalanceBtn').addEventListener('click', closeBalanceModal);
     document.getElementById('cancelExpenseBtn').addEventListener('click', closeModal);
     document.getElementById('balanceForm').addEventListener('submit', saveBalanceOverride);

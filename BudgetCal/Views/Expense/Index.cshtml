@@ -124,28 +124,70 @@
 
 <!-- Recurring Edit Mode Modal -->
 <div id="recurringEditModal" class="modal">
-    <div class="modal-content">
-        <h3>Edit Recurring Item</h3>
-        <p>This is a recurring item. How would you like to edit it?</p>
-        <div class="recurring-options">
-            <button type="button" id="editThisOne" class="btn-primary">This One Only</button>
-            <button type="button" id="editFromThisOne" class="btn-primary">This and Future Ones</button>
-            <button type="button" id="editAllInSeries" class="btn-primary">All in Series</button>
-            <button type="button" id="cancelRecurringEdit" class="btn-secondary">Cancel</button>
+    <div class="modal-content budget-modal small-modal">
+        <div class="modal-header-new">
+            <div class="header-left">
+                <h3>Edit Recurring Item</h3>
+                <div class="modal-subtitle">How would you like to edit this series?</div>
+            </div>
+            <div class="header-right-new">
+                <span class="close" id="closeRecurringEditModal">&times;</span>
+            </div>
+        </div>
+        <div class="recurring-options-modern">
+            <button type="button" id="editThisOne" class="btn-option">
+                <span class="option-title">This Instance Only</span>
+                <span class="option-desc">Only change this specific date</span>
+            </button>
+            <button type="button" id="editFromThisOne" class="btn-option">
+                <span class="option-title">This and Future</span>
+                <span class="option-desc">Apply changes from this date forward</span>
+            </button>
+            <button type="button" id="editAllInSeries" class="btn-option">
+                <span class="option-title">All in Series</span>
+                <span class="option-desc">Update every instance in the series</span>
+            </button>
+        </div>
+        <div class="form-actions-new">
+            <div></div>
+            <div class="actions-right">
+                <button type="button" class="btn-text-secondary" id="cancelRecurringEdit">CANCEL</button>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Recurring Delete Mode Modal -->
 <div id="recurringDeleteModal" class="modal">
-    <div class="modal-content">
-        <h3>Delete Recurring Item</h3>
-        <p>This is a recurring item. How would you like to delete it?</p>
-        <div class="recurring-options">
-            <button type="button" id="deleteThisOne" class="btn-danger">This One Only</button>
-            <button type="button" id="deleteFromThisOne" class="btn-danger">This and Future Ones</button>
-            <button type="button" id="deleteAllInSeries" class="btn-danger">All in Series</button>
-            <button type="button" id="cancelRecurringDelete" class="btn-secondary">Cancel</button>
+    <div class="modal-content budget-modal small-modal">
+        <div class="modal-header-new">
+            <div class="header-left">
+                <h3>Delete Recurring Item</h3>
+                <div class="modal-subtitle">How would you like to delete this series?</div>
+            </div>
+            <div class="header-right-new">
+                <span class="close" id="closeRecurringDeleteModal">&times;</span>
+            </div>
+        </div>
+        <div class="recurring-options-modern">
+            <button type="button" id="deleteThisOne" class="btn-option danger">
+                <span class="option-title">This Instance Only</span>
+                <span class="option-desc">Only remove this specific date</span>
+            </button>
+            <button type="button" id="deleteFromThisOne" class="btn-option danger">
+                <span class="option-title">This and Future</span>
+                <span class="option-desc">Remove this and all upcoming dates</span>
+            </button>
+            <button type="button" id="deleteAllInSeries" class="btn-option danger">
+                <span class="option-title">All in Series</span>
+                <span class="option-desc">Remove the entire series</span>
+            </button>
+        </div>
+        <div class="form-actions-new">
+            <div></div>
+            <div class="actions-right">
+                <button type="button" class="btn-text-secondary" id="cancelRecurringDelete">CANCEL</button>
+            </div>
         </div>
     </div>
 </div>
