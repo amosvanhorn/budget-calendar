@@ -180,7 +180,7 @@ function createDayCell(day) {
         if (isOverride) {
             balanceDiv.classList.add('override');
         }
-        balanceDiv.textContent = `Balance: $${balance.toFixed(2)}`;
+        balanceDiv.textContent = `$${balance.toFixed(2)}`;
         balanceDiv.addEventListener('click', (e) => {
             e.stopPropagation();
             openBalanceModal(dateStr, balance);

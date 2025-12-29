@@ -102,7 +102,7 @@ body {
 
 .calendar-cell {
     background-color: white;
-    min-height: 110px;
+    min-height: 140px;
     padding: 6px;
     cursor: pointer;
     transition: background-color 0.2s ease;
@@ -121,8 +121,8 @@ body {
 .calendar-cell.today .day-number {
     background-color: #3b82f6;
     color: white;
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     border-radius: 6px;
     display: flex;
     align-items: center;
@@ -135,10 +135,10 @@ body {
 }
 
 .day-number {
-    font-weight: 600;
-    font-size: 14px;
+    font-weight: 500;
+    font-size: 13px;
     margin-bottom: 8px;
-    color: #475569;
+    color: #64748b;
 }
 
 .items-wrapper {
@@ -185,7 +185,7 @@ body {
     font-size: 10px;
     font-weight: 600;
     color: #166534;
-    text-align: right;
+    text-align: center;
     border: 1px solid #dcfce7;
     cursor: pointer;
     transition: all 0.2s;
