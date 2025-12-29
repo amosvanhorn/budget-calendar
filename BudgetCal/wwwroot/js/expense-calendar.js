@@ -149,9 +149,11 @@ function createDayCell(day) {
     dayExpenses.forEach(expense => {
         const expenseItem = document.createElement('div');
         expenseItem.className = 'expense-item';
-        const bgColor = expense.color || '#e3f2fd';
-        expenseItem.style.backgroundColor = bgColor;
-        expenseItem.style.color = getContrastColor(bgColor);
+        const rawColor = expense.color || '#efebe9';
+        const softBg = getSoftColor(rawColor);
+        expenseItem.style.backgroundColor = softBg;
+        expenseItem.style.color = getContrastColor(rawColor);
+        expenseItem.style.borderLeftColor = rawColor;
         expenseItem.innerHTML = `
             <span class="expense-description">${expense.description}</span>
             <span class="expense-amount">$${expense.amount.toFixed(2)}</span>
@@ -451,22 +453,41 @@ function performRecurringDelete(expenseId, mode) {
 }
 
 const colorTextMap = {
-    '#4caf50': '#ffffff', // Green -> White
-    '#f44336': '#ffffff', // Red -> White
-    '#00a884': '#ffffff', // Tealish -> White
-    '#2196f3': '#ffffff', // Blue -> White
-    '#ff9800': '#ffffff', // Orange -> White
-    '#9c27b0': '#ffffff', // Purple -> White
-    '#ffeb3b': '#000000', // Yellow -> Black
-    '#00bcd4': '#ffffff', // Cyan -> White
-    '#9e9e9e': '#ffffff', // Grey -> White
-    '#ffcc80': '#000000', // Light Orange -> Black
-    '#8d3d3d': '#ffffff', // Maroon -> White
-    '#efebe9': '#000000'  // Light Grey -> Black
+    '#4caf50': '#1b5e20', // Green -> Dark Green
+    '#f44336': '#c62828', // Red -> Dark Red
+    '#00a884': '#00695c', // Tealish -> Dark Teal
+    '#2196f3': '#1565c0', // Blue -> Dark Blue
+    '#ff9800': '#e65100', // Orange -> Dark Orange
+    '#9c27b0': '#6a1b9a', // Purple -> Dark Purple
+    '#ffeb3b': '#f57f17', // Yellow -> Dark Yellow/Orange
+    '#00bcd4': '#00838f', // Cyan -> Dark Cyan
+    '#9e9e9e': '#424242', // Grey -> Dark Grey
+    '#ffcc80': '#ef6c00', // Light Orange -> Dark Orange
+    '#8d3d3d': '#4e2727', // Maroon -> Dark Maroon
+    '#efebe9': '#4e342e'  // Light Grey -> Dark Brown
+};
+
+const softColorMap = {
+    '#4caf50': '#e8f5e9', // Green
+    '#f44336': '#ffebee', // Red
+    '#00a884': '#e0f2f1', // Tealish
+    '#2196f3': '#e3f2fd', // Blue
+    '#ff9800': '#fff3e0', // Orange
+    '#9c27b0': '#f3e5f5', // Purple
+    '#ffeb3b': '#fffde7', // Yellow
+    '#00bcd4': '#e0f7fa', // Cyan
+    '#9e9e9e': '#f5f5f5', // Grey
+    '#ffcc80': '#fff8e1', // Light Orange
+    '#8d3d3d': '#efebe9', // Maroon
+    '#efebe9': '#fafafa'  // Light Grey
 };
 
 function getContrastColor(hexColor) {
     return colorTextMap[hexColor.toLowerCase()] || '#000000';
+}
+
+function getSoftColor(hexColor) {
+    return softColorMap[hexColor.toLowerCase()] || hexColor;
 }
 
 function clearAllData() {
