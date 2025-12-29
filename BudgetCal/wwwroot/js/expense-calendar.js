@@ -15,7 +15,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('prevMonth').addEventListener('click', () => navigateMonth(-1));
     document.getElementById('nextMonth').addEventListener('click', () => navigateMonth(1));
-    document.getElementById('addExpenseBtn').addEventListener('click', () => openModal());
     document.getElementById('clearDataBtn').addEventListener('click', clearAllData);
     document.querySelector('.close').addEventListener('click', closeModal);
     document.getElementById('expenseForm').addEventListener('submit', saveExpense);
@@ -131,13 +130,18 @@ function createDayCell(day) {
     const cell = document.createElement('div');
     cell.className = 'calendar-cell';
 
+    const today = new Date();
+    if (day === today.getDate() && currentMonth === (today.getMonth() + 1) && currentYear === today.getFullYear()) {
+        cell.classList.add('today');
+    }
+
     const dayNumber = document.createElement('div');
     dayNumber.className = 'day-number';
     dayNumber.textContent = day;
     cell.appendChild(dayNumber);
 
-    const expensesContainer = document.createElement('div');
-    expensesContainer.className = 'expenses-container';
+    const itemsWrapper = document.createElement('div');
+    itemsWrapper.className = 'items-wrapper';
 
     const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const dayExpenses = expenses.filter(e => e.date.startsWith(dateStr));
@@ -156,8 +160,10 @@ function createDayCell(day) {
             e.stopPropagation();
             openModal(expense);
         });
-        expensesContainer.appendChild(expenseItem);
+        itemsWrapper.appendChild(expenseItem);
     });
+
+    cell.appendChild(itemsWrapper);
 
     // Add balance display
     const balanceData = dailyBalances[dateStr];
@@ -179,10 +185,8 @@ function createDayCell(day) {
             e.stopPropagation();
             openBalanceModal(dateStr, balance);
         });
-        expensesContainer.appendChild(balanceDiv);
+        cell.appendChild(balanceDiv);
     }
-
-    cell.appendChild(expensesContainer);
 
     cell.addEventListener('click', () => {
         openModal(null, new Date(currentYear, currentMonth - 1, day));
@@ -193,7 +197,9 @@ function createDayCell(day) {
 
 function openBalanceModal(dateStr, currentBalance) {
     currentBalanceDate = dateStr;
-    document.getElementById('balanceDate').textContent = dateStr;
+    const dateToDisplay = new Date(dateStr + 'T00:00:00');
+    const options = { month: 'short', day: 'numeric', year: 'numeric' };
+    document.getElementById('balanceDateSubtitle').textContent = dateToDisplay.toLocaleDateString('en-US', options);
     document.getElementById('balanceAmount').value = currentBalance.toFixed(2);
     document.getElementById('balanceModal').style.display = 'block';
 }

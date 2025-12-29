@@ -11,9 +11,6 @@
             <h2 id="monthYear">@ViewBag.MonthName</h2>
             <button id="nextMonth" class="nav-btn">&rarr;</button>
         </div>
-        <div class="header-right">
-            <button id="clearDataBtn" class="btn-clear">Clear All Data</button>
-        </div>
     </div>
 
     <div class="calendar-container">
@@ -155,17 +152,29 @@
 
 <!-- Balance Override Modal -->
 <div id="balanceModal" class="modal">
-    <div class="modal-content">
-        <span class="close" id="closeBalanceModal">&times;</span>
-        <h3>Set Balance for <span id="balanceDate"></span></h3>
-        <form id="balanceForm">
-            <div class="form-group">
-                <label for="balanceAmount">Balance Amount:</label>
-                <input type="number" id="balanceAmount" step="0.01" required />
+    <div class="modal-content budget-modal small-modal">
+        <div class="modal-header-new">
+            <div class="header-left">
+                <h3>Set Balance</h3>
+                <div id="balanceDateSubtitle" class="modal-subtitle">Dec 1, 2025</div>
             </div>
-            <div class="form-actions">
-                <button type="submit" class="btn-primary">Set Balance</button>
-                <button type="button" id="cancelBalanceBtn" class="btn-secondary">Cancel</button>
+            <div class="header-right-new">
+                <span class="close" id="closeBalanceModal">&times;</span>
+            </div>
+        </div>
+        <form id="balanceForm">
+            <div class="form-row">
+                <div class="form-group-new flex-1">
+                    <label for="balanceAmount">Balance Amount:</label>
+                    <input type="number" id="balanceAmount" class="underline-input" step="0.01" placeholder="0.00" required />
+                </div>
+            </div>
+            <div class="form-actions-new">
+                <div></div>
+                <div class="actions-right">
+                    <button type="button" class="btn-text-secondary" id="cancelBalanceBtn">CANCEL</button>
+                    <button type="submit" class="btn-save">SET BALANCE</button>
+                </div>
             </div>
         </form>
     </div>
