@@ -6,11 +6,13 @@
 
 <div class="expense-tracker">
     <div class="header">
-        <button id="prevMonth" class="nav-btn">&larr; Previous</button>
-        <h2 id="monthYear">@ViewBag.MonthName</h2>
+        <div class="header-left-nav">
+            <button id="prevMonth" class="nav-btn">&larr;</button>
+            <h2 id="monthYear">@ViewBag.MonthName</h2>
+            <button id="nextMonth" class="nav-btn">&rarr;</button>
+        </div>
         <div class="header-right">
             <button id="clearDataBtn" class="btn-clear">Clear All Data</button>
-            <button id="nextMonth" class="nav-btn">Next &rarr;</button>
         </div>
     </div>
 
@@ -27,9 +29,6 @@
         <div id="calendarGrid" class="calendar-grid"></div>
     </div>
 
-    <div class="add-expense-btn-container">
-        <button id="addExpenseBtn" class="btn-primary">+ Add Item</button>
-    </div>
 </div>
 
 <!-- Item Modal -->
