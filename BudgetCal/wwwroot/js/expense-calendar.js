@@ -168,7 +168,7 @@ function createDayCell(day) {
     // Add balance display
     const balanceData = dailyBalances[dateStr];
 
-    if (balanceData !== undefined && balanceData.balance !== 0) {
+    if (balanceData !== undefined) {
         const balance = balanceData.balance;
         const isOverride = balanceData.isOverride;
         
