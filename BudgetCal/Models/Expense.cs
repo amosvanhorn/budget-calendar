@@ -35,6 +35,9 @@ public class Item
     // Tracks if this instance is a modified exception from the series
     public bool IsException { get; set; }
     public DateTime? OriginalDate { get; set; } // For exceptions, stores the original recurring date
+
+    // Layer association
+    public int? LayerId { get; set; }
 }
 
 // Keeping Expense as an alias for backward compatibility during migration

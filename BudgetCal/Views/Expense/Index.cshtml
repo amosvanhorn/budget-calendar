@@ -5,30 +5,36 @@
 }
 
 <div class="expense-tracker">
-    <div class="header">
-        <button id="prevMonth" class="nav-btn">&larr; Previous</button>
-        <h2 id="monthYear">@ViewBag.MonthName</h2>
-        <div class="header-right">
-            <button id="clearDataBtn" class="btn-clear">Clear All Data</button>
-            <button id="nextMonth" class="nav-btn">Next &rarr;</button>
+    <div class="layers-sidebar">
+        <div class="layers-header">
+            <h3>Layers</h3>
+            <button id="addLayerBtn" class="btn-icon-small" title="Add Layer">+</button>
+        </div>
+        <div id="layersList" class="layers-list">
+            <!-- Layers will be populated here -->
         </div>
     </div>
-
-    <div class="calendar-container">
-        <div class="calendar-header">
-            <div class="day-name">Sunday</div>
-            <div class="day-name">Monday</div>
-            <div class="day-name">Tuesday</div>
-            <div class="day-name">Wednesday</div>
-            <div class="day-name">Thursday</div>
-            <div class="day-name">Friday</div>
-            <div class="day-name">Saturday</div>
+    <div class="calendar-main">
+        <div class="header">
+            <div class="header-left-nav">
+                <button id="prevMonth" class="nav-btn">&larr;</button>
+                <h2 id="monthYear">@ViewBag.MonthName</h2>
+                <button id="nextMonth" class="nav-btn">&rarr;</button>
+            </div>
         </div>
-        <div id="calendarGrid" class="calendar-grid"></div>
-    </div>
 
-    <div class="add-expense-btn-container">
-        <button id="addExpenseBtn" class="btn-primary">+ Add Item</button>
+        <div class="calendar-container">
+            <div class="calendar-header">
+                <div class="day-name">Sunday</div>
+                <div class="day-name">Monday</div>
+                <div class="day-name">Tuesday</div>
+                <div class="day-name">Wednesday</div>
+                <div class="day-name">Thursday</div>
+                <div class="day-name">Friday</div>
+                <div class="day-name">Saturday</div>
+            </div>
+            <div id="calendarGrid" class="calendar-grid"></div>
+        </div>
     </div>
 </div>
 
@@ -37,7 +43,10 @@
     <div class="modal-content budget-modal">
         <div class="modal-header-new">
             <div class="header-left">
-                <h3 id="modalTitle"></h3>
+                <div class="modal-title-row">
+                    <h3 id="modalTitle"></h3>
+                    <div id="editModeIndicator" class="edit-mode-indicator" style="display: none;">Single Instance</div>
+                </div>
                 <div id="modalSubtitle" class="modal-subtitle">Scheduled for Dec 1, 2025</div>
             </div>
             <div class="header-right-new">
@@ -58,6 +67,9 @@
                     <label for="expenseAmount">Amount:</label>
                     <input type="number" id="expenseAmount" class="underline-input" step="0.01" placeholder="0.00" required />
                 </div>
+            </div>
+
+            <div class="form-row">
                 <div class="form-group-new flex-1 type-group">
                     <label>Type:</label>
                     <select id="expenseType" class="underline-input">
@@ -65,15 +77,26 @@
                         <option value="Credit">Income</option>
                     </select>
                 </div>
+                <div class="form-group-new flex-1">
+                    <label>Layer:</label>
+                    <select id="expenseLayer" class="underline-input">
+                        <option value="">Default</option>
+                        <!-- Layer options will be populated here -->
+                    </select>
+                </div>
+                <div class="form-group-new flex-2">
+                    <label for="expenseDate">Date:</label>
+                    <input type="date" id="expenseDate" class="underline-input" required />
+                </div>
             </div>
 
             <div class="form-row">
-                <div class="form-group-new flex-2">
+                <div class="form-group-new flex-1">
                     <label>Repeat:</label>
                     <div class="recurring-row">
                         <label class="checkbox-label">
                             <input type="checkbox" id="isRecurring" />
-                            <span class="checkbox-custom"></span> Yes
+                            <span class="checkbox-custom"></span>
                         </label>
                         <div id="recurringOptionsInline" class="recurring-inline" style="display: none;">
                             <span>every</span>
@@ -87,28 +110,31 @@
                         </div>
                     </div>
                 </div>
-                <div class="form-group-new flex-2">
-                    <label for="expenseDate">Date:</label>
-                    <input type="date" id="expenseDate" class="underline-input" required />
-                </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group-new flex-1">
                     <label>Color:</label>
                     <div class="color-picker-new">
-                        <div class="color-square" data-color="#4caf50" style="background-color: #4caf50;"></div>
-                        <div class="color-square" data-color="#f44336" style="background-color: #f44336;"></div>
-                        <div class="color-square" data-color="#00a884" style="background-color: #00a884;"></div>
-                        <div class="color-square" data-color="#2196f3" style="background-color: #2196f3;"></div>
-                        <div class="color-square" data-color="#ff9800" style="background-color: #ff9800;"></div>
-                        <div class="color-square" data-color="#9c27b0" style="background-color: #9c27b0;"></div>
-                        <div class="color-square" data-color="#ffeb3b" style="background-color: #ffeb3b;"></div>
-                        <div class="color-square" data-color="#00bcd4" style="background-color: #00bcd4;"></div>
-                        <div class="color-square" data-color="#9e9e9e" style="background-color: #9e9e9e;"></div>
-                        <div class="color-square" data-color="#ffcc80" style="background-color: #ffcc80;"></div>
-                        <div class="color-square" data-color="#8d3d3d" style="background-color: #8d3d3d;"></div>
-                        <div class="color-square" data-color="#efebe9" style="background-color: #efebe9;"></div>
+                        <!-- Reds/Oranges -->
+                        <div class="color-square" data-color="#f44336"></div>
+                        <div class="color-square" data-color="#8d3d3d"></div>
+                        <div class="color-square" data-color="#ff9800"></div>
+                        <div class="color-square" data-color="#ffcc80"></div>
+                        
+                        <!-- Yellows/Greens -->
+                        <div class="color-square" data-color="#ffeb3b"></div>
+                        <div class="color-square" data-color="#4caf50"></div>
+                        <div class="color-square" data-color="#00a884"></div>
+                        
+                        <!-- Blues/Purples -->
+                        <div class="color-square" data-color="#00bcd4"></div>
+                        <div class="color-square" data-color="#2196f3"></div>
+                        <div class="color-square" data-color="#9c27b0"></div>
+                        
+                        <!-- Neutrals -->
+                        <div class="color-square" data-color="#9e9e9e"></div>
+                        <div class="color-square" data-color="#efebe9"></div>
                         <input type="hidden" id="expenseColor" value="#efebe9" />
                     </div>
                 </div>
@@ -128,45 +154,129 @@
 
 <!-- Recurring Edit Mode Modal -->
 <div id="recurringEditModal" class="modal">
-    <div class="modal-content">
-        <h3>Edit Recurring Item</h3>
-        <p>This is a recurring item. How would you like to edit it?</p>
-        <div class="recurring-options">
-            <button type="button" id="editThisOne" class="btn-primary">This One Only</button>
-            <button type="button" id="editFromThisOne" class="btn-primary">This and Future Ones</button>
-            <button type="button" id="editAllInSeries" class="btn-primary">All in Series</button>
-            <button type="button" id="cancelRecurringEdit" class="btn-secondary">Cancel</button>
+    <div class="modal-content budget-modal small-modal">
+        <div class="modal-header-new">
+            <div class="header-left">
+                <h3>Edit Recurring Item</h3>
+                <div class="modal-subtitle">How would you like to edit this series?</div>
+            </div>
+            <div class="header-right-new">
+                <span class="close" id="closeRecurringEditModal">&times;</span>
+            </div>
+        </div>
+        <div class="recurring-options-modern">
+            <button type="button" id="editThisOne" class="btn-option">
+                <span class="option-title">This Instance Only</span>
+                <span class="option-desc">Only change this specific date</span>
+            </button>
+            <button type="button" id="editFromThisOne" class="btn-option">
+                <span class="option-title">This and Future</span>
+                <span class="option-desc">Apply changes from this date forward</span>
+            </button>
+            <button type="button" id="editAllInSeries" class="btn-option">
+                <span class="option-title">All in Series</span>
+                <span class="option-desc">Update every instance in the series</span>
+            </button>
+        </div>
+        <div class="form-actions-new">
+            <div></div>
+            <div class="actions-right">
+                <button type="button" class="btn-text-secondary" id="cancelRecurringEdit">CANCEL</button>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Recurring Delete Mode Modal -->
 <div id="recurringDeleteModal" class="modal">
-    <div class="modal-content">
-        <h3>Delete Recurring Item</h3>
-        <p>This is a recurring item. How would you like to delete it?</p>
-        <div class="recurring-options">
-            <button type="button" id="deleteThisOne" class="btn-danger">This One Only</button>
-            <button type="button" id="deleteFromThisOne" class="btn-danger">This and Future Ones</button>
-            <button type="button" id="deleteAllInSeries" class="btn-danger">All in Series</button>
-            <button type="button" id="cancelRecurringDelete" class="btn-secondary">Cancel</button>
+    <div class="modal-content budget-modal small-modal">
+        <div class="modal-header-new">
+            <div class="header-left">
+                <h3>Delete Recurring Item</h3>
+                <div class="modal-subtitle">How would you like to delete this series?</div>
+            </div>
+            <div class="header-right-new">
+                <span class="close" id="closeRecurringDeleteModal">&times;</span>
+            </div>
+        </div>
+        <div class="recurring-options-modern">
+            <button type="button" id="deleteThisOne" class="btn-option danger">
+                <span class="option-title">This Instance Only</span>
+                <span class="option-desc">Only remove this specific date</span>
+            </button>
+            <button type="button" id="deleteFromThisOne" class="btn-option danger">
+                <span class="option-title">This and Future</span>
+                <span class="option-desc">Remove this and all upcoming dates</span>
+            </button>
+            <button type="button" id="deleteAllInSeries" class="btn-option danger">
+                <span class="option-title">All in Series</span>
+                <span class="option-desc">Remove the entire series</span>
+            </button>
+        </div>
+        <div class="form-actions-new">
+            <div></div>
+            <div class="actions-right">
+                <button type="button" class="btn-text-secondary" id="cancelRecurringDelete">CANCEL</button>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Balance Override Modal -->
 <div id="balanceModal" class="modal">
-    <div class="modal-content">
-        <span class="close" id="closeBalanceModal">&times;</span>
-        <h3>Set Balance for <span id="balanceDate"></span></h3>
-        <form id="balanceForm">
-            <div class="form-group">
-                <label for="balanceAmount">Balance Amount:</label>
-                <input type="number" id="balanceAmount" step="0.01" required />
+    <div class="modal-content budget-modal small-modal">
+        <div class="modal-header-new">
+            <div class="header-left">
+                <h3>Set Balance</h3>
+                <div id="balanceDateSubtitle" class="modal-subtitle">Dec 1, 2025</div>
             </div>
-            <div class="form-actions">
-                <button type="submit" class="btn-primary">Set Balance</button>
-                <button type="button" id="cancelBalanceBtn" class="btn-secondary">Cancel</button>
+            <div class="header-right-new">
+                <span class="close" id="closeBalanceModal">&times;</span>
+            </div>
+        </div>
+        <form id="balanceForm">
+            <div class="form-row">
+                <div class="form-group-new flex-1">
+                    <label for="balanceAmount">Balance Amount:</label>
+                    <input type="number" id="balanceAmount" class="underline-input" step="0.01" placeholder="0.00" required />
+                </div>
+            </div>
+            <div class="form-actions-new">
+                <div></div>
+                <div class="actions-right">
+                    <button type="button" class="btn-text-secondary" id="cancelBalanceBtn">CANCEL</button>
+                    <button type="submit" class="btn-save">SET BALANCE</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add Layer Modal -->
+<div id="layerModal" class="modal">
+    <div class="modal-content budget-modal small-modal">
+        <div class="modal-header-new">
+            <div class="header-left">
+                <h3>Add New Layer</h3>
+                <div class="modal-subtitle">Create a conceptual grouping for items</div>
+            </div>
+            <div class="header-right-new">
+                <span class="close" id="closeLayerModal">&times;</span>
+            </div>
+        </div>
+        <form id="layerForm">
+            <div class="form-row">
+                <div class="form-group-new flex-1">
+                    <label for="layerName">Layer Name:</label>
+                    <input type="text" id="layerName" class="underline-input" placeholder="e.g. Credit Card Payoff" required />
+                </div>
+            </div>
+            <div class="form-actions-new">
+                <div></div>
+                <div class="actions-right">
+                    <button type="button" class="btn-text-secondary" id="cancelLayerBtn">CANCEL</button>
+                    <button type="submit" class="btn-save">CREATE LAYER</button>
+                </div>
             </div>
         </form>
     </div>

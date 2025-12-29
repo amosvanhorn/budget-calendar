@@ -1,6 +1,8 @@
 let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth() + 1;
 let expenses = [];
+let layers = [];
+let defaultLayerActive = true;
 let dailyBalances = {};
 let currentExpense = null;
 let recurringEditMode = null;
@@ -15,19 +17,36 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('prevMonth').addEventListener('click', () => navigateMonth(-1));
     document.getElementById('nextMonth').addEventListener('click', () => navigateMonth(1));
-    document.getElementById('addExpenseBtn').addEventListener('click', () => openModal());
     document.getElementById('clearDataBtn').addEventListener('click', clearAllData);
     document.querySelector('.close').addEventListener('click', closeModal);
     document.getElementById('expenseForm').addEventListener('submit', saveExpense);
     document.getElementById('deleteExpenseBtn').addEventListener('click', deleteExpense);
     document.getElementById('isRecurring').addEventListener('change', toggleRecurringOptions);
     document.getElementById('closeBalanceModal').addEventListener('click', closeBalanceModal);
+    document.getElementById('closeRecurringEditModal').addEventListener('click', () => {
+        document.getElementById('recurringEditModal').style.display = 'none';
+        currentExpense = null;
+    });
+    document.getElementById('closeRecurringDeleteModal').addEventListener('click', () => {
+        document.getElementById('recurringDeleteModal').style.display = 'none';
+        document.getElementById('expenseModal').style.display = 'block';
+    });
     document.getElementById('cancelBalanceBtn').addEventListener('click', closeBalanceModal);
     document.getElementById('cancelExpenseBtn').addEventListener('click', closeModal);
     document.getElementById('balanceForm').addEventListener('submit', saveBalanceOverride);
+    document.getElementById('addLayerBtn').addEventListener('click', openLayerModal);
+    document.getElementById('layerForm').addEventListener('submit', createLayer);
+    document.getElementById('closeLayerModal').addEventListener('click', closeLayerModal);
+    document.getElementById('cancelLayerBtn').addEventListener('click', closeLayerModal);
 
     // Color picker logic
     document.querySelectorAll('.color-square').forEach(square => {
+        const rawColor = square.dataset.color;
+        if (rawColor) {
+            square.style.backgroundColor = getSoftColor(rawColor);
+            square.style.borderLeftColor = rawColor;
+        }
+        
         square.addEventListener('click', function() {
             if (this.classList.contains('add-color')) return;
             
@@ -44,11 +63,13 @@ function loadStorageToServer() {
         try {
             const data = JSON.parse(stored);
             balanceOverrides = data.balanceOverrides || {};
+            defaultLayerActive = data.defaultLayerActive !== undefined ? data.defaultLayerActive : true;
             return fetch('/Expense/LoadFromStorage', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     items: data.expenses || [],
+                    layers: data.layers || [],
                     balanceOverrides: data.balanceOverrides || {}
                 })
             }).then(response => response.json());
@@ -66,7 +87,11 @@ function saveToLocalStorage() {
         .then(response => response.json())
         .then(data => {
             balanceOverrides = data.balanceOverrides || {};
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            const storageData = {
+                ...data,
+                defaultLayerActive: defaultLayerActive
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(storageData));
         })
         .catch(err => console.error('Error saving to localStorage:', err));
 }
@@ -85,14 +110,18 @@ function navigateMonth(direction) {
 
 function loadExpenses() {
     Promise.all([
-        fetch(`/Expense/GetExpenses?year=${currentYear}&month=${currentMonth}`).then(r => r.json()),
-        fetch(`/Expense/GetDailyBalances?year=${currentYear}&month=${currentMonth}`).then(r => r.json())
+        fetch(`/Expense/GetExpenses?year=${currentYear}&month=${currentMonth}&defaultActive=${defaultLayerActive}`).then(r => r.json()),
+        fetch(`/Expense/GetDailyBalances?year=${currentYear}&month=${currentMonth}&defaultActive=${defaultLayerActive}`).then(r => r.json()),
+        fetch(`/Expense/GetLayers`).then(r => r.json())
     ])
-    .then(([expensesData, balancesData]) => {
+    .then(([expensesData, balancesData, layersData]) => {
         expenses = expensesData;
         dailyBalances = balancesData;
+        layers = layersData;
         updateMonthDisplay();
         renderCalendar();
+        renderLayers();
+        populateLayerDropdown();
     });
 }
 
@@ -131,13 +160,18 @@ function createDayCell(day) {
     const cell = document.createElement('div');
     cell.className = 'calendar-cell';
 
+    const today = new Date();
+    if (day === today.getDate() && currentMonth === (today.getMonth() + 1) && currentYear === today.getFullYear()) {
+        cell.classList.add('today');
+    }
+
     const dayNumber = document.createElement('div');
     dayNumber.className = 'day-number';
     dayNumber.textContent = day;
     cell.appendChild(dayNumber);
 
-    const expensesContainer = document.createElement('div');
-    expensesContainer.className = 'expenses-container';
+    const itemsWrapper = document.createElement('div');
+    itemsWrapper.className = 'items-wrapper';
 
     const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const dayExpenses = expenses.filter(e => e.date.startsWith(dateStr));
@@ -145,9 +179,11 @@ function createDayCell(day) {
     dayExpenses.forEach(expense => {
         const expenseItem = document.createElement('div');
         expenseItem.className = 'expense-item';
-        const bgColor = expense.color || '#e3f2fd';
-        expenseItem.style.backgroundColor = bgColor;
-        expenseItem.style.color = getContrastColor(bgColor);
+        const rawColor = expense.color || '#efebe9';
+        const softBg = getSoftColor(rawColor);
+        expenseItem.style.backgroundColor = softBg;
+        expenseItem.style.color = getContrastColor(rawColor);
+        expenseItem.style.borderLeftColor = rawColor;
         expenseItem.innerHTML = `
             <span class="expense-description">${expense.description}</span>
             <span class="expense-amount">$${expense.amount.toFixed(2)}</span>
@@ -156,13 +192,15 @@ function createDayCell(day) {
             e.stopPropagation();
             openModal(expense);
         });
-        expensesContainer.appendChild(expenseItem);
+        itemsWrapper.appendChild(expenseItem);
     });
+
+    cell.appendChild(itemsWrapper);
 
     // Add balance display
     const balanceData = dailyBalances[dateStr];
 
-    if (balanceData !== undefined && balanceData.balance !== 0) {
+    if (balanceData !== undefined) {
         const balance = balanceData.balance;
         const isOverride = balanceData.isOverride;
         
@@ -174,15 +212,13 @@ function createDayCell(day) {
         if (isOverride) {
             balanceDiv.classList.add('override');
         }
-        balanceDiv.textContent = `Balance: $${balance.toFixed(2)}`;
+        balanceDiv.textContent = `$${balance.toFixed(2)}`;
         balanceDiv.addEventListener('click', (e) => {
             e.stopPropagation();
             openBalanceModal(dateStr, balance);
         });
-        expensesContainer.appendChild(balanceDiv);
+        cell.appendChild(balanceDiv);
     }
-
-    cell.appendChild(expensesContainer);
 
     cell.addEventListener('click', () => {
         openModal(null, new Date(currentYear, currentMonth - 1, day));
@@ -193,7 +229,9 @@ function createDayCell(day) {
 
 function openBalanceModal(dateStr, currentBalance) {
     currentBalanceDate = dateStr;
-    document.getElementById('balanceDate').textContent = dateStr;
+    const dateToDisplay = new Date(dateStr + 'T00:00:00');
+    const options = { month: 'short', day: 'numeric', year: 'numeric' };
+    document.getElementById('balanceDateSubtitle').textContent = dateToDisplay.toLocaleDateString('en-US', options);
     document.getElementById('balanceAmount').value = currentBalance.toFixed(2);
     document.getElementById('balanceModal').style.display = 'block';
 }
@@ -225,8 +263,8 @@ function saveBalanceOverride(e) {
 }
 
 function openModal(expense = null, defaultDate = null) {
-    // If editing a recurring instance, show the edit mode dialog first
-    if (expense && expense.isRecurring && expense.parentRecurringItemId) {
+    // If editing a recurring item (parent or instance), show the edit mode dialog first
+    if (expense && expense.isRecurring) {
         currentExpense = expense;
         showRecurringEditDialog();
         return;
@@ -239,19 +277,52 @@ function openExpenseForm(expense = null, defaultDate = null) {
     const modal = document.getElementById('expenseModal');
     const form = document.getElementById('expenseForm');
     const deleteBtn = document.getElementById('deleteExpenseBtn');
+    const indicator = document.getElementById('editModeIndicator');
+    const dateInput = document.getElementById('expenseDate');
 
     form.reset();
+    dateInput.disabled = false;
 
     // Set header date subtitle
     const dateToDisplay = expense ? new Date(expense.date) : (defaultDate || new Date());
     const options = { month: 'short', day: 'numeric', year: 'numeric' };
     document.getElementById('modalSubtitle').textContent = `Scheduled for ${dateToDisplay.toLocaleDateString('en-US', options)}`;
 
+    // Set edit mode indicator
+    if (expense && expense.isRecurring) {
+        indicator.style.display = 'block';
+        if (recurringEditMode === 'ThisOne') {
+            indicator.textContent = 'Single Instance';
+            indicator.style.background = '#fef2f2';
+            indicator.style.color = '#ef4444';
+            indicator.style.borderColor = '#fee2e2';
+        } else if (recurringEditMode === 'FromThisOne') {
+            indicator.textContent = 'This & Future';
+            indicator.style.background = '#fffbeb';
+            indicator.style.color = '#f59e0b';
+            indicator.style.borderColor = '#fef3c7';
+            dateInput.disabled = true;
+        } else if (recurringEditMode === 'AllInSeries') {
+            const startDate = new Date(expense.recurringStartDate || expense.date);
+            indicator.textContent = `Full Series (Started ${startDate.toLocaleDateString('en-US', options)})`;
+            indicator.style.background = '#eff6ff';
+            indicator.style.color = '#3b82f6';
+            indicator.style.borderColor = '#dbeafe';
+            dateInput.disabled = true;
+        } else {
+            // Default/Fallback
+            indicator.style.display = 'none';
+        }
+    } else {
+        indicator.style.display = 'none';
+    }
+
     if (expense) {
         document.getElementById('expenseId').value = expense.id;
         document.getElementById('expenseDate').value = expense.date.split('T')[0];
         document.getElementById('expenseAmount').value = expense.amount;
         document.getElementById('expenseDescription').value = expense.description;
+        document.getElementById('expenseLayer').value = expense.layerId || '';
         
         // Handle type selection
         document.getElementById('expenseType').value = expense.type || 'Debit';
@@ -351,17 +422,24 @@ function saveExpense(e) {
         description: document.getElementById('expenseDescription').value,
         type: document.getElementById('expenseType').value,
         color: document.getElementById('expenseColor').value,
+        layerId: document.getElementById('expenseLayer').value ? parseInt(document.getElementById('expenseLayer').value) : null,
         isRecurring: isRecurring,
         recurringInterval: isRecurring ? parseInt(document.getElementById('recurringInterval').value) : null,
         recurringPeriod: isRecurring ? document.getElementById('recurringPeriod').value : null,
         recurringStartDate: isRecurring ? expenseDate : null,
-        recurringEditMode: isRecurringInstance ? recurringEditMode : null
+        recurringEditMode: isRecurring ? recurringEditMode : null
     };
+
+    // If date is disabled, use the original date from the form value (which remains correct)
+    // but ensured it's included in the object sent to server.
+    if (document.getElementById('expenseDate').disabled && currentExpense) {
+        expense.date = currentExpense.date.split('T')[0];
+    }
 
     let url = expenseId ? '/Expense/Update' : '/Expense/Create';
 
-    // If editing a recurring instance with a mode, use the special endpoint
-    if (expenseId && isRecurringInstance && recurringEditMode) {
+    // If editing a recurring item with a mode, use the special endpoint
+    if (expenseId && isRecurring && recurringEditMode) {
         url = `/Expense/UpdateRecurring?mode=${recurringEditMode}`;
     }
 
@@ -384,12 +462,12 @@ function saveExpense(e) {
 
 function deleteExpense() {
     const expenseId = document.getElementById('expenseId').value;
-    const isRecurringInstance = document.getElementById('isRecurringInstance').value === 'true';
+    const isRecurring = document.getElementById('isRecurring').checked;
     
     if (!expenseId) return;
     
-    // If it's a recurring instance, show the delete mode dialog
-    if (isRecurringInstance) {
+    // If it's a recurring item, show the delete mode dialog
+    if (isRecurring) {
         showRecurringDeleteDialog(expenseId);
         return;
     }
@@ -445,26 +523,45 @@ function performRecurringDelete(expenseId, mode) {
 }
 
 const colorTextMap = {
-    '#4caf50': '#ffffff', // Green -> White
-    '#f44336': '#ffffff', // Red -> White
-    '#00a884': '#ffffff', // Tealish -> White
-    '#2196f3': '#ffffff', // Blue -> White
-    '#ff9800': '#ffffff', // Orange -> White
-    '#9c27b0': '#ffffff', // Purple -> White
-    '#ffeb3b': '#000000', // Yellow -> Black
-    '#00bcd4': '#ffffff', // Cyan -> White
-    '#9e9e9e': '#ffffff', // Grey -> White
-    '#ffcc80': '#000000', // Light Orange -> Black
-    '#8d3d3d': '#ffffff', // Maroon -> White
-    '#efebe9': '#000000'  // Light Grey -> Black
+    '#4caf50': '#1b5e20', // Green -> Dark Green
+    '#f44336': '#c62828', // Red -> Dark Red
+    '#00a884': '#00695c', // Tealish -> Dark Teal
+    '#2196f3': '#1565c0', // Blue -> Dark Blue
+    '#ff9800': '#e65100', // Orange -> Dark Orange
+    '#9c27b0': '#6a1b9a', // Purple -> Dark Purple
+    '#ffeb3b': '#f57f17', // Yellow -> Dark Yellow/Orange
+    '#00bcd4': '#00838f', // Cyan -> Dark Cyan
+    '#9e9e9e': '#424242', // Grey -> Dark Grey
+    '#ffcc80': '#ef6c00', // Light Orange -> Dark Orange
+    '#8d3d3d': '#4e2727', // Maroon -> Dark Maroon
+    '#efebe9': '#4e342e'  // Light Grey -> Dark Brown
+};
+
+const softColorMap = {
+    '#4caf50': '#e8f5e9', // Green
+    '#f44336': '#ffebee', // Red
+    '#00a884': '#e0f2f1', // Tealish
+    '#2196f3': '#e3f2fd', // Blue
+    '#ff9800': '#fff3e0', // Orange
+    '#9c27b0': '#f3e5f5', // Purple
+    '#ffeb3b': '#fffde7', // Yellow
+    '#00bcd4': '#e0f7fa', // Cyan
+    '#9e9e9e': '#f5f5f5', // Grey
+    '#ffcc80': '#fff8e1', // Light Orange
+    '#8d3d3d': '#efebe9', // Maroon
+    '#efebe9': '#fafafa'  // Light Grey
 };
 
 function getContrastColor(hexColor) {
     return colorTextMap[hexColor.toLowerCase()] || '#000000';
 }
 
+function getSoftColor(hexColor) {
+    return softColorMap[hexColor.toLowerCase()] || hexColor;
+}
+
 function clearAllData() {
-    if (!confirm('Are you sure you want to delete ALL items? This cannot be undone.')) {
+    if (!confirm('Are you sure you want to delete ALL items and layers? This cannot be undone.')) {
         return;
     }
 
@@ -473,6 +570,7 @@ function clearAllData() {
         .then(() => {
             localStorage.removeItem(STORAGE_KEY);
             expenses = [];
+            layers = [];
             dailyBalances = {};
             loadExpenses();
         })
@@ -480,4 +578,103 @@ function clearAllData() {
             console.error('Error clearing data:', err);
             alert('Failed to clear data. Please try again.');
         });
+}
+
+function openLayerModal() {
+    document.getElementById('layerName').value = '';
+    document.getElementById('layerModal').style.display = 'block';
+}
+
+function closeLayerModal() {
+    document.getElementById('layerModal').style.display = 'none';
+}
+
+function createLayer(e) {
+    e.preventDefault();
+    const name = document.getElementById('layerName').value;
+    
+    fetch('/Expense/CreateLayer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, isActive: true })
+    })
+    .then(response => response.json())
+    .then(() => {
+        closeLayerModal();
+        saveToLocalStorage();
+        loadExpenses();
+    });
+}
+
+function renderLayers() {
+    const list = document.getElementById('layersList');
+    list.innerHTML = '';
+    
+    // Add "Default" layer
+    const defaultItem = document.createElement('div');
+    defaultItem.className = `layer-item ${defaultLayerActive ? 'active' : ''} default-layer`;
+    defaultItem.innerHTML = `
+        <div class="layer-toggle"></div>
+        <span class="layer-name">Default</span>
+    `;
+    defaultItem.addEventListener('click', () => {
+        defaultLayerActive = !defaultLayerActive;
+        saveToLocalStorage();
+        loadExpenses();
+    });
+    list.appendChild(defaultItem);
+
+    layers.forEach(layer => {
+        const item = document.createElement('div');
+        item.className = `layer-item ${layer.isActive ? 'active' : ''}`;
+        
+        item.innerHTML = `
+            <div class="layer-toggle"></div>
+            <span class="layer-name">${layer.name}</span>
+            <button class="btn-delete-layer" title="Delete Layer">&times;</button>
+        `;
+        
+        item.addEventListener('click', (e) => {
+            if (e.target.classList.contains('btn-delete-layer')) {
+                deleteLayer(layer.id);
+            } else {
+                toggleLayer(layer.id);
+            }
+        });
+        
+        list.appendChild(item);
+    });
+}
+
+function toggleLayer(id) {
+    fetch(`/Expense/ToggleLayer?id=${id}`, { method: 'POST' })
+    .then(() => {
+        saveToLocalStorage();
+        loadExpenses();
+    });
+}
+
+function deleteLayer(id) {
+    if (!confirm('Are you sure you want to delete this layer? Items in this layer will be removed.')) return;
+    
+    fetch(`/Expense/DeleteLayer?id=${id}`, { method: 'DELETE' })
+    .then(() => {
+        saveToLocalStorage();
+        loadExpenses();
+    });
+}
+
+function populateLayerDropdown() {
+    const dropdown = document.getElementById('expenseLayer');
+    const currentValue = dropdown.value;
+    
+    dropdown.innerHTML = '<option value="">Default</option>';
+    layers.forEach(layer => {
+        const option = document.createElement('option');
+        option.value = layer.id;
+        option.textContent = layer.name;
+        dropdown.appendChild(option);
+    });
+    
+    dropdown.value = currentValue;
 }
