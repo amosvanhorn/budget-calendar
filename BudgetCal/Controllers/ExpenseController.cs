@@ -135,7 +135,8 @@ public class ExpenseController : Controller
                         RecurringPeriod = recurring.RecurringPeriod,
                         RecurringStartDate = recurring.RecurringStartDate,
                         RecurringEndDate = recurring.RecurringEndDate,
-                        ParentRecurringItemId = recurring.Id
+                        ParentRecurringItemId = recurring.Id,
+                        LayerId = recurring.LayerId
                     });
                 }
 
@@ -573,7 +574,8 @@ public class ExpenseController : Controller
                     IsRecurring = false,
                     IsException = true,
                     OriginalDate = date.Date,
-                    ParentRecurringItemId = parentItem.Id
+                    ParentRecurringItemId = parentItem.Id,
+                    LayerId = parentItem.LayerId
                 };
                 _items.Add(exception);
                 return Ok();
