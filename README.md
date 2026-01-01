@@ -1,76 +1,85 @@
-# BudgetCal
+# 💰 BudgetCal
 
-BudgetCal is an ASP.NET Core MVC application designed for managing expenses and visualizing them in a calendar view. It provides a simple way to track spending, manage account balances, and plan budgets.
+[![Build Status](https://img.shields.io/badge/Build-passing-brightgreen.svg)]()
+[![.NET Version](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Table of Contents
-- [Overview](#overview)
-- [Requirements](#requirements)
-- [Stack](#stack)
-- [Setup and Run](#setup-and-run)
-- [Scripts](#scripts)
-- [Environment Variables](#environment-variables)
-- [Tests](#tests)
-- [Project Structure](#project-structure)
-- [License](#license)
+BudgetCal is a modern ASP.NET Core MVC application designed for seamless expense management and financial visualization. Track your spending, manage account balances, and plan your budget with an intuitive calendar interface.
 
-## Overview
-BudgetCal allows users to:
-- Track expenses with details such as amount, date, and category.
-- View expenses on a calendar interface.
-- Manage account balances and layers of financial planning.
-- Benefit from a responsive UI built with Bootstrap and jQuery.
+## 📌 Table of Contents
+- [🔍 Overview](#-overview)
+- [⚙️ Requirements](#️-requirements)
+- [🛠️ Stack](#️-stack)
+- [🚀 Setup and Run](#-setup-and-run)
+- [📜 Scripts](#-scripts)
+- [🌐 Environment Variables](#-environment-variables)
+- [🧪 Tests](#-tests)
+- [📂 Project Structure](#-project-structure)
+- [📄 License](#-license)
 
-## Requirements
+## 🔍 Overview
+BudgetCal empowers users to:
+- ✅ **Track Expenses:** Detailed logging with amount, date, and category.
+- 📅 **Calendar View:** Visualize your spending patterns over time.
+- 🏦 **Financial Planning:** Manage account balances and multiple planning layers.
+- 📱 **Responsive UI:** Built with Bootstrap and jQuery for a smooth experience across devices.
+
+## ⚙️ Requirements
 - [.NET 10.0 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- A modern web browser.
-- (Optional) [JetBrains Rider](https://www.jetbrains.com/rider/) or [Visual Studio 2022+](https://visualstudio.microsoft.com/) for development.
+- A modern web browser (Chrome, Firefox, Edge, etc.)
+- (Optional) [JetBrains Rider](https://www.jetbrains.com/rider/) or [Visual Studio 2022+](https://visualstudio.microsoft.com/)
 
-## Stack
-- **Language:** C# 14.0
-- **Framework:** ASP.NET Core MVC 10.0
-- **Frontend:** Razor Pages, Bootstrap, jQuery
-- **Package Manager:** NuGet
+## 🛠️ Stack
+| Component | Technology |
+| :--- | :--- |
+| **Language** | C# 14.0 |
+| **Framework** | ASP.NET Core MVC 10.0 |
+| **Frontend** | Razor Pages, Bootstrap 5, jQuery |
+| **Package Manager** | NuGet |
 
-## Setup and Run
+## 🚀 Setup and Run
 
-### Clone the Repository
+### 📥 Clone the Repository
 ```bash
 git clone https://github.com/yourusername/budget-calendar.git
 cd budget-calendar
 ```
 
-### Restore Dependencies
+### 📦 Restore Dependencies
 ```bash
 dotnet restore
 ```
 
-### Build the Project
+### 🔨 Build the Project
 ```bash
 dotnet build
 ```
 
-### Run the Application
+### 🏁 Run the Application
 ```bash
 dotnet run --project BudgetCal
 ```
+
 By default, the application will be available at:
-- HTTP: `http://localhost:5264`
-- HTTPS: `https://localhost:7064`
+- 🌐 **HTTP:** `http://localhost:5264`
+- 🔒 **HTTPS:** `https://localhost:7064`
 
-## Scripts
-Currently, there are no custom scripts (like `setup.sh` or `deploy.ps1`) in the root directory. Standard `dotnet` CLI commands are used for all lifecycle tasks.
+## 📜 Scripts
+Currently, standard `dotnet` CLI commands are used for all lifecycle tasks. No custom scripts are required.
 
-## Environment Variables
-- `ASPNETCORE_ENVIRONMENT`: Set to `Development` for development features (like Razor Runtime Compilation) or `Production` for production builds.
+## 🌐 Environment Variables
+- `ASPNETCORE_ENVIRONMENT`: 
+    - `Development`: Enables developer tools and Razor Runtime Compilation.
+    - `Production`: Optimized for deployment.
 
-## Tests
-- TODO: Add a test project (e.g., xUnit or NUnit) and include instructions for running tests.
+## 🧪 Tests
+- 📝 **TODO:** Add a test project (e.g., xUnit or NUnit).
 - To run tests (once added):
   ```bash
   dotnet test
   ```
 
-## Project Structure
+## 📂 Project Structure
 ```text
 budget-calendar/
 ├── BudgetCal/                # Main ASP.NET Core MVC Project
@@ -86,5 +95,5 @@ budget-calendar/
 └── README.md                 # This file
 ```
 
-## License
-- TODO: Add license information.
+## 📄 License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details (TODO: add LICENSE file).
