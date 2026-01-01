@@ -12,6 +12,15 @@ const STORAGE_KEY = 'budget_calendar_data';
 
 document.addEventListener('DOMContentLoaded', function() {
     loadStorageToServer().then(() => {
+        // Initialize sidebar state
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+            const data = JSON.parse(stored);
+            if (data.sidebarCollapsed) {
+                document.getElementById('layersSidebar').classList.add('collapsed');
+                document.getElementById('expandSidebarBtn').style.display = 'flex';
+            }
+        }
         loadExpenses();
     });
 
@@ -35,6 +44,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('cancelExpenseBtn').addEventListener('click', closeModal);
     document.getElementById('balanceForm').addEventListener('submit', saveBalanceOverride);
     document.getElementById('addLayerBtn').addEventListener('click', openLayerModal);
+    document.getElementById('toggleSidebarBtn').addEventListener('click', toggleSidebar);
+    document.getElementById('expandSidebarBtn').addEventListener('click', toggleSidebar);
     document.getElementById('layerForm').addEventListener('submit', createLayer);
     document.getElementById('closeLayerModal').addEventListener('click', closeLayerModal);
     document.getElementById('cancelLayerBtn').addEventListener('click', closeLayerModal);
@@ -106,6 +117,22 @@ function navigateMonth(direction) {
         currentYear--;
     }
     loadExpenses();
+}
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('layersSidebar');
+    const expandBtn = document.getElementById('expandSidebarBtn');
+    const isCollapsed = sidebar.classList.toggle('collapsed');
+    
+    expandBtn.style.display = isCollapsed ? 'flex' : 'none';
+    
+    // Save state to localStorage
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+        const data = JSON.parse(stored);
+        data.sidebarCollapsed = isCollapsed;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
 }
 
 function loadExpenses() {
@@ -580,8 +607,20 @@ function clearAllData() {
         });
 }
 
-function openLayerModal() {
-    document.getElementById('layerName').value = '';
+function openLayerModal(layer = null) {
+    if (layer) {
+        document.getElementById('layerModal').querySelector('h3').textContent = 'Edit Layer';
+        document.getElementById('layerModal').querySelector('.modal-subtitle').textContent = 'Update the name of this layer';
+        document.getElementById('layerName').value = layer.name;
+        document.getElementById('editLayerId').value = layer.id;
+        document.getElementById('saveLayerBtn').textContent = 'UPDATE LAYER';
+    } else {
+        document.getElementById('layerModal').querySelector('h3').textContent = 'Add New Layer';
+        document.getElementById('layerModal').querySelector('.modal-subtitle').textContent = 'Create a conceptual grouping for items';
+        document.getElementById('layerName').value = '';
+        document.getElementById('editLayerId').value = '';
+        document.getElementById('saveLayerBtn').textContent = 'CREATE LAYER';
+    }
     document.getElementById('layerModal').style.display = 'block';
 }
 
@@ -592,18 +631,33 @@ function closeLayerModal() {
 function createLayer(e) {
     e.preventDefault();
     const name = document.getElementById('layerName').value;
-    
-    fetch('/Expense/CreateLayer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name, isActive: true })
-    })
-    .then(response => response.json())
-    .then(() => {
-        closeLayerModal();
-        saveToLocalStorage();
-        loadExpenses();
-    });
+    const editId = document.getElementById('editLayerId').value;
+
+    if (editId) {
+        fetch('/Expense/UpdateLayer', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: parseInt(editId), name: name })
+        })
+        .then(response => response.json())
+        .then(() => {
+            closeLayerModal();
+            saveToLocalStorage();
+            loadExpenses();
+        });
+    } else {
+        fetch('/Expense/CreateLayer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, isActive: true })
+        })
+        .then(response => response.json())
+        .then(() => {
+            closeLayerModal();
+            saveToLocalStorage();
+            loadExpenses();
+        });
+    }
 }
 
 function renderLayers() {
@@ -631,12 +685,17 @@ function renderLayers() {
         item.innerHTML = `
             <div class="layer-toggle"></div>
             <span class="layer-name">${layer.name}</span>
-            <button class="btn-delete-layer" title="Delete Layer">&times;</button>
+            <div class="layer-actions">
+                <button class="btn-edit-layer" title="Edit Layer">✎</button>
+                <button class="btn-delete-layer" title="Delete Layer">&times;</button>
+            </div>
         `;
         
         item.addEventListener('click', (e) => {
             if (e.target.classList.contains('btn-delete-layer')) {
                 deleteLayer(layer.id);
+            } else if (e.target.classList.contains('btn-edit-layer')) {
+                openLayerModal(layer);
             } else {
                 toggleLayer(layer.id);
             }

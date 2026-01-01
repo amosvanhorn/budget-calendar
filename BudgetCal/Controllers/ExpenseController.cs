@@ -135,7 +135,8 @@ public class ExpenseController : Controller
                         RecurringPeriod = recurring.RecurringPeriod,
                         RecurringStartDate = recurring.RecurringStartDate,
                         RecurringEndDate = recurring.RecurringEndDate,
-                        ParentRecurringItemId = recurring.Id
+                        ParentRecurringItemId = recurring.Id,
+                        LayerId = recurring.LayerId
                     });
                 }
 
@@ -313,6 +314,18 @@ public class ExpenseController : Controller
         layer.Id = _nextLayerId++;
         _layers.Add(layer);
         return Json(new { success = true, layer = layer });
+    }
+
+    [HttpPut]
+    public IActionResult UpdateLayer([FromBody] Layer layer)
+    {
+        var existing = _layers.FirstOrDefault(l => l.Id == layer.Id);
+        if (existing != null)
+        {
+            existing.Name = layer.Name;
+            return Json(new { success = true, layer = existing });
+        }
+        return NotFound();
     }
 
     [HttpPost]
@@ -573,7 +586,8 @@ public class ExpenseController : Controller
                     IsRecurring = false,
                     IsException = true,
                     OriginalDate = date.Date,
-                    ParentRecurringItemId = parentItem.Id
+                    ParentRecurringItemId = parentItem.Id,
+                    LayerId = parentItem.LayerId
                 };
                 _items.Add(exception);
                 return Ok();

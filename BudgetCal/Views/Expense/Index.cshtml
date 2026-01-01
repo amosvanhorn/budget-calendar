@@ -5,15 +5,19 @@
 }
 
 <div class="expense-tracker">
-    <div class="layers-sidebar">
+    <div class="layers-sidebar" id="layersSidebar">
         <div class="layers-header">
-            <h3>Layers</h3>
-            <button id="addLayerBtn" class="btn-icon-small" title="Add Layer">+</button>
+            <h3 class="layers-title">Layers</h3>
+            <div class="layers-header-actions">
+                <button id="addLayerBtn" class="btn-icon-small" title="Add Layer">+</button>
+                <button id="toggleSidebarBtn" class="btn-icon-small" title="Collapse Sidebar">«</button>
+            </div>
         </div>
         <div id="layersList" class="layers-list">
             <!-- Layers will be populated here -->
         </div>
     </div>
+    <button id="expandSidebarBtn" class="expand-sidebar-btn" title="Expand Sidebar" style="display: none;">»</button>
     <div class="calendar-main">
         <div class="header">
             <div class="header-left-nav">
@@ -265,6 +269,7 @@
             </div>
         </div>
         <form id="layerForm">
+            <input type="hidden" id="editLayerId" />
             <div class="form-row">
                 <div class="form-group-new flex-1">
                     <label for="layerName">Layer Name:</label>
@@ -275,7 +280,7 @@
                 <div></div>
                 <div class="actions-right">
                     <button type="button" class="btn-text-secondary" id="cancelLayerBtn">CANCEL</button>
-                    <button type="submit" class="btn-save">CREATE LAYER</button>
+                    <button type="submit" class="btn-save" id="saveLayerBtn">CREATE LAYER</button>
                 </div>
             </div>
         </form>
