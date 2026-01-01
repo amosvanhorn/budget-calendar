@@ -316,6 +316,18 @@ public class ExpenseController : Controller
         return Json(new { success = true, layer = layer });
     }
 
+    [HttpPut]
+    public IActionResult UpdateLayer([FromBody] Layer layer)
+    {
+        var existing = _layers.FirstOrDefault(l => l.Id == layer.Id);
+        if (existing != null)
+        {
+            existing.Name = layer.Name;
+            return Json(new { success = true, layer = existing });
+        }
+        return NotFound();
+    }
+
     [HttpPost]
     public IActionResult ToggleLayer(int id)
     {
