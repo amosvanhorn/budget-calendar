@@ -25,6 +25,17 @@
                 <h2 id="monthYear">@ViewBag.MonthName</h2>
                 <button id="nextMonth" class="nav-btn">&rarr;</button>
             </div>
+            <div class="header-right-nav">
+                <div class="account-selector-container">
+                    <select id="accountSelector" class="account-select">
+                        @foreach (var account in ViewBag.Accounts as List<BudgetCal.Models.Account>)
+                        {
+                            <option value="@account.Id" selected="@(account.Id == ViewBag.AccountId)">@account.Name</option>
+                        }
+                    </select>
+                    <button id="manageAccountsBtn" class="btn-icon-small" title="Manage Accounts">⚙️</button>
+                </div>
+            </div>
         </div>
 
         <div class="calendar-container">
@@ -284,6 +295,72 @@
                 </div>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Account Management Modal -->
+<div id="accountModal" class="modal">
+    <div class="modal-content budget-modal">
+        <div class="modal-header-new">
+            <div class="header-left">
+                <h3 id="accountModalTitle">Manage Accounts</h3>
+                <div class="modal-subtitle">Add or edit your money accounts</div>
+            </div>
+            <div class="header-right-new">
+                <span class="close" id="closeAccountModal">&times;</span>
+            </div>
+        </div>
+        
+        <div id="accountListContainer" class="account-list-container">
+            <table class="account-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Start Date</th>
+                        <th>Start Balance</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="accountTableBody">
+                    <!-- Accounts will be populated here -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="account-form-section">
+            <h4 id="accountFormTitle">Add New Account</h4>
+            <form id="accountForm">
+                <input type="hidden" id="editAccountId" />
+                <div class="form-row">
+                    <div class="form-group-new flex-2">
+                        <label for="accountName">Account Name:</label>
+                        <input type="text" id="accountName" class="underline-input" placeholder="e.g. Savings, Checking" required />
+                    </div>
+                    <div class="form-group-new flex-1">
+                        <label for="accountStartBalance">Starting Balance:</label>
+                        <input type="number" id="accountStartBalance" class="underline-input" step="0.01" value="1000.00" required />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group-new flex-1">
+                        <label for="accountStartDate">Starting Date:</label>
+                        <input type="date" id="accountStartDate" class="underline-input" value="2025-09-01" required />
+                    </div>
+                    <div class="form-group-new flex-2">
+                        <label for="accountDescription">Description:</label>
+                        <input type="text" id="accountDescription" class="underline-input" placeholder="Optional description" />
+                    </div>
+                </div>
+                <div class="form-actions-new">
+                    <div class="actions-left">
+                        <button type="button" class="btn-text-secondary" id="resetAccountForm" style="display: none;">CANCEL EDIT</button>
+                    </div>
+                    <div class="actions-right">
+                        <button type="submit" class="btn-save" id="saveAccountBtn">CREATE ACCOUNT</button>
+                    </div>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 

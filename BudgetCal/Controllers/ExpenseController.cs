@@ -6,66 +6,118 @@ namespace BudgetCal.Controllers;
 public class ExpenseController : Controller
 {
     // In-memory storage for items (data persisted to localStorage on client side)
+    private static List<Account> _accounts = new List<Account> 
+    { 
+        new Account { Id = 1, Name = "Default Account", Description = "Your primary money account" } 
+    };
     private static List<Item> _items = new List<Item>();
     private static List<Layer> _layers = new List<Layer>();
     private static int _nextId = 1;
     private static int _nextLayerId = 1;
-    private static Dictionary<string, decimal> _balanceOverrides = new Dictionary<string, decimal>();
+    private static int _nextAccountId = 2;
+    private static Dictionary<int, Dictionary<string, decimal>> _balanceOverrides = new Dictionary<int, Dictionary<string, decimal>>();
     private const string StorageKey = "budget_calendar_items";
 
-    public IActionResult Index(int? year, int? month)
+    public IActionResult Index(int? year, int? month, int? accountId)
     {
         var now = DateTime.Now;
         var selectedYear = year ?? now.Year;
         var selectedMonth = month ?? now.Month;
+        var selectedAccountId = accountId ?? _accounts.FirstOrDefault()?.Id ?? 1;
 
         ViewBag.Year = selectedYear;
         ViewBag.Month = selectedMonth;
+        ViewBag.AccountId = selectedAccountId;
         ViewBag.MonthName = new DateTime(selectedYear, selectedMonth, 1).ToString("MMMM yyyy");
+        ViewBag.Accounts = _accounts;
 
-        return View(_items);
+        return View(_items.Where(i => i.AccountId == selectedAccountId).ToList());
     }
 
     [HttpGet]
-    public IActionResult GetAllExpenses()
+    public IActionResult GetAccounts()
     {
-        return Json(_items);
+        return Json(_accounts);
+    }
+
+    [HttpPost]
+    public IActionResult CreateAccount([FromBody] Account account)
+    {
+        account.Id = _nextAccountId++;
+        _accounts.Add(account);
+        return Json(new { success = true, account = account });
+    }
+
+    [HttpPut]
+    public IActionResult UpdateAccount([FromBody] Account account)
+    {
+        var existing = _accounts.FirstOrDefault(a => a.Id == account.Id);
+        if (existing != null)
+        {
+            existing.Name = account.Name;
+            existing.Description = account.Description;
+            existing.StartDate = account.StartDate;
+            existing.StartingBalance = account.StartingBalance;
+            return Json(new { success = true, account = existing });
+        }
+        return NotFound();
+    }
+
+    [HttpDelete]
+    public IActionResult DeleteAccount(int id)
+    {
+        var account = _accounts.FirstOrDefault(a => a.Id == id);
+        if (account != null)
+        {
+            _accounts.Remove(account);
+            _items.RemoveAll(i => i.AccountId == id);
+            _layers.RemoveAll(l => l.AccountId == id);
+            _balanceOverrides.Remove(id);
+            return Json(new { success = true });
+        }
+        return NotFound();
     }
 
     [HttpGet]
-    public IActionResult GetExpenses(int year, int month, bool defaultActive = true)
+    public IActionResult GetAllExpenses(int accountId)
+    {
+        return Json(_items.Where(i => i.AccountId == accountId).ToList());
+    }
+
+    [HttpGet]
+    public IActionResult GetExpenses(int year, int month, int accountId, bool defaultActive = true)
     {
         var startDate = new DateTime(year, month, 1);
         var endDate = startDate.AddMonths(1).AddDays(-1);
 
-        var activeLayerIds = _layers.Where(l => l.IsActive).Select(l => (int?)l.Id).ToHashSet();
+        var activeLayerIds = _layers.Where(l => l.AccountId == accountId && l.IsActive).Select(l => (int?)l.Id).ToHashSet();
 
         // Get only non-recurring, non-exception items (one-time items)
         var items = _items
-            .Where(e => e.Date >= startDate && e.Date <= endDate && !e.IsRecurring && !e.IsException)
+            .Where(e => e.AccountId == accountId && e.Date >= startDate && e.Date <= endDate && !e.IsRecurring && !e.IsException)
             .Where(e => (e.LayerId.HasValue && activeLayerIds.Contains(e.LayerId)) || (!e.LayerId.HasValue && defaultActive))
             .OrderBy(e => e.Date)
             .ToList();
 
         // Generate recurring item instances for this month
-        var recurringItems = GenerateRecurringItems(startDate, endDate, defaultActive);
+        var recurringItems = GenerateRecurringItems(startDate, endDate, accountId, defaultActive);
         items.AddRange(recurringItems);
 
         return Json(items.OrderBy(e => e.Date));
     }
 
-    private List<Item> GenerateRecurringItems(DateTime startDate, DateTime endDate, bool defaultActive = true)
+    private List<Item> GenerateRecurringItems(DateTime startDate, DateTime endDate, int accountId, bool defaultActive = true)
     {
         var generatedItems = new List<Item>();
-        var activeLayerIds = _layers.Where(l => l.IsActive).Select(l => (int?)l.Id).ToHashSet();
+        var activeLayerIds = _layers.Where(l => l.AccountId == accountId && l.IsActive).Select(l => (int?)l.Id).ToHashSet();
 
         var recurringItems = _items
-            .Where(e => e.IsRecurring)
+            .Where(e => e.AccountId == accountId && e.IsRecurring)
             .Where(e => (e.LayerId.HasValue && activeLayerIds.Contains(e.LayerId)) || (!e.LayerId.HasValue && defaultActive))
             .ToList();
         
         var exceptions = _items
-            .Where(e => e.IsException)
+            .Where(e => e.AccountId == accountId && e.IsException)
             .Where(e => (e.LayerId.HasValue && activeLayerIds.Contains(e.LayerId)) || (!e.LayerId.HasValue && defaultActive))
             .ToList();
 
@@ -101,9 +153,32 @@ public class ExpenseController : Controller
             var currentDate = recurringStart;
 
             // Advance to first occurrence in the period
-            while (currentDate < startDate)
+            if (currentDate < startDate)
             {
-                currentDate = AddRecurringInterval(currentDate, recurring.RecurringInterval!.Value, recurring.RecurringPeriod!);
+                // Optimization: skip iterations if currentDate is far before startDate
+                if (recurring.RecurringPeriod == "days")
+                {
+                    var daysDiff = (startDate - currentDate).Days;
+                    var intervalsToSkip = daysDiff / recurring.RecurringInterval!.Value;
+                    currentDate = currentDate.AddDays(intervalsToSkip * recurring.RecurringInterval.Value);
+                }
+                else if (recurring.RecurringPeriod == "weeks")
+                {
+                    var daysDiff = (startDate - currentDate).Days;
+                    var intervalsToSkip = daysDiff / (7 * recurring.RecurringInterval!.Value);
+                    currentDate = currentDate.AddDays(intervalsToSkip * 7 * recurring.RecurringInterval.Value);
+                }
+                else if (recurring.RecurringPeriod == "months")
+                {
+                    var monthsDiff = ((startDate.Year - currentDate.Year) * 12) + startDate.Month - currentDate.Month;
+                    var intervalsToSkip = Math.Max(0, (monthsDiff - 1) / recurring.RecurringInterval!.Value);
+                    currentDate = currentDate.AddMonths(intervalsToSkip * recurring.RecurringInterval.Value);
+                }
+
+                while (currentDate < startDate)
+                {
+                    currentDate = AddRecurringInterval(currentDate, recurring.RecurringInterval!.Value, recurring.RecurringPeriod!);
+                }
             }
 
             // Generate all occurrences within the period
@@ -125,6 +200,7 @@ public class ExpenseController : Controller
                     generatedItems.Add(new Item
                     {
                         Id = recurring.Id, // Use same ID to link to parent
+                        AccountId = recurring.AccountId,
                         Date = currentDate,
                         Amount = recurring.Amount,
                         Description = recurring.Description,
@@ -180,17 +256,19 @@ public class ExpenseController : Controller
     }
 
     [HttpGet]
-    public IActionResult GetDailyBalances(int year, int month, bool defaultActive = true)
+    public IActionResult GetDailyBalances(int year, int month, int accountId, bool defaultActive = true)
     {
         var startDate = new DateTime(year, month, 1);
         var daysInMonth = DateTime.DaysInMonth(year, month);
         var balances = new Dictionary<string, object>();
         
+        var accountOverrides = _balanceOverrides.ContainsKey(accountId) ? _balanceOverrides[accountId] : new Dictionary<string, decimal>();
+
         // Find the most recent override date before or in this month
         DateTime? lastOverrideDate = null;
         decimal? lastOverrideBalance = null;
         
-        foreach (var kvp in _balanceOverrides.OrderBy(x => x.Key))
+        foreach (var kvp in accountOverrides.OrderBy(x => x.Key))
         {
             var overrideDate = DateTime.Parse(kvp.Key);
             if (overrideDate <= startDate.AddMonths(1).AddDays(-1))
@@ -206,22 +284,22 @@ public class ExpenseController : Controller
             var dateStr = currentDate.ToString("yyyy-MM-dd");
             
             // Check if this specific date has an override
-            if (_balanceOverrides.ContainsKey(dateStr))
+            if (accountOverrides.ContainsKey(dateStr))
             {
-                balances[dateStr] = new { balance = _balanceOverrides[dateStr], isOverride = true };
+                balances[dateStr] = new { balance = accountOverrides[dateStr], isOverride = true };
                 lastOverrideDate = currentDate;
-                lastOverrideBalance = _balanceOverrides[dateStr];
+                lastOverrideBalance = accountOverrides[dateStr];
             }
             else if (lastOverrideDate.HasValue && currentDate > lastOverrideDate.Value)
             {
                 // Calculate from the last override date
-                var balance = CalculateBalanceFromDate(lastOverrideDate.Value, lastOverrideBalance!.Value, currentDate, defaultActive);
+                var balance = CalculateBalanceFromDate(lastOverrideDate.Value, lastOverrideBalance!.Value, currentDate, accountId, defaultActive);
                 balances[dateStr] = new { balance = balance, isOverride = false };
             }
             else
             {
                 // Use the original calculation
-                var balance = CalculateBalanceForDate(currentDate, defaultActive);
+                var balance = CalculateBalanceForDate(currentDate, accountId, defaultActive);
                 balances[dateStr] = new { balance = balance, isOverride = false };
             }
         }
@@ -229,10 +307,13 @@ public class ExpenseController : Controller
         return Json(balances);
     }
 
-    private decimal CalculateBalanceForDate(DateTime date, bool defaultActive = true)
+    private decimal CalculateBalanceForDate(DateTime date, int accountId, bool defaultActive = true)
     {
-        var startDate = AccountBalance.StartDate;
-        var startBalance = AccountBalance.StartingBalance;
+        var account = _accounts.FirstOrDefault(a => a.Id == accountId);
+        if (account == null) return 0;
+
+        var startDate = account.StartDate;
+        var startBalance = account.StartingBalance;
 
         // If the date is before the start date, return 0 or handle as needed
         if (date < startDate)
@@ -240,21 +321,23 @@ public class ExpenseController : Controller
             return 0;
         }
 
-        var activeLayerIds = _layers.Where(l => l.IsActive).Select(l => (int?)l.Id).ToHashSet();
+        var activeLayerIds = _layers.Where(l => l.AccountId == accountId && l.IsActive).Select(l => (int?)l.Id).ToHashSet();
 
         // Calculate total non-recurring items
         var totalDebits = _items
-            .Where(e => e.Date >= startDate && e.Date.Date <= date.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Debit)
+            .Where(e => e.AccountId == accountId && e.Date >= startDate && e.Date.Date <= date.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Debit)
             .Where(e => (e.LayerId.HasValue && activeLayerIds.Contains(e.LayerId)) || (!e.LayerId.HasValue && defaultActive))
+            .ToList()
             .Sum(e => e.Amount);
 
         var totalCredits = _items
-            .Where(e => e.Date >= startDate && e.Date.Date <= date.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Credit)
+            .Where(e => e.AccountId == accountId && e.Date >= startDate && e.Date.Date <= date.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Credit)
             .Where(e => (e.LayerId.HasValue && activeLayerIds.Contains(e.LayerId)) || (!e.LayerId.HasValue && defaultActive))
+            .ToList()
             .Sum(e => e.Amount);
 
         // Add recurring items up to this date (includes exceptions)
-        var recurringItems = GenerateRecurringItems(startDate, date, defaultActive);
+        var recurringItems = GenerateRecurringItems(startDate, date, accountId, defaultActive);
         var totalRecurringDebits = recurringItems
             .Where(e => e.Date.Date <= date.Date && e.Type == TransactionType.Debit)
             .Sum(e => e.Amount);
@@ -266,23 +349,23 @@ public class ExpenseController : Controller
         return startBalance - totalDebits - totalRecurringDebits + totalCredits + totalRecurringCredits;
     }
 
-    private decimal CalculateBalanceFromDate(DateTime fromDate, decimal fromBalance, DateTime toDate, bool defaultActive = true)
+    private decimal CalculateBalanceFromDate(DateTime fromDate, decimal fromBalance, DateTime toDate, int accountId, bool defaultActive = true)
     {
-        var activeLayerIds = _layers.Where(l => l.IsActive).Select(l => (int?)l.Id).ToHashSet();
+        var activeLayerIds = _layers.Where(l => l.AccountId == accountId && l.IsActive).Select(l => (int?)l.Id).ToHashSet();
 
         // Calculate items between fromDate (exclusive) and toDate (inclusive)
         var totalDebits = _items
-            .Where(e => e.Date.Date > fromDate.Date && e.Date.Date <= toDate.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Debit)
+            .Where(e => e.AccountId == accountId && e.Date.Date > fromDate.Date && e.Date.Date <= toDate.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Debit)
             .Where(e => (e.LayerId.HasValue && activeLayerIds.Contains(e.LayerId)) || (!e.LayerId.HasValue && defaultActive))
             .Sum(e => e.Amount);
 
         var totalCredits = _items
-            .Where(e => e.Date.Date > fromDate.Date && e.Date.Date <= toDate.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Credit)
+            .Where(e => e.AccountId == accountId && e.Date.Date > fromDate.Date && e.Date.Date <= toDate.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Credit)
             .Where(e => (e.LayerId.HasValue && activeLayerIds.Contains(e.LayerId)) || (!e.LayerId.HasValue && defaultActive))
             .Sum(e => e.Amount);
 
         // Add recurring items in this range
-        var recurringItems = GenerateRecurringItems(fromDate.AddDays(1), toDate, defaultActive);
+        var recurringItems = GenerateRecurringItems(fromDate.AddDays(1), toDate, accountId, defaultActive);
         var totalRecurringDebits = recurringItems
             .Where(e => e.Date.Date > fromDate.Date && e.Date.Date <= toDate.Date && e.Type == TransactionType.Debit)
             .Sum(e => e.Amount);
@@ -319,7 +402,7 @@ public class ExpenseController : Controller
     [HttpPut]
     public IActionResult UpdateLayer([FromBody] Layer layer)
     {
-        var existing = _layers.FirstOrDefault(l => l.Id == layer.Id);
+        var existing = _layers.FirstOrDefault(l => l.Id == layer.Id && l.AccountId == layer.AccountId);
         if (existing != null)
         {
             existing.Name = layer.Name;
@@ -329,9 +412,9 @@ public class ExpenseController : Controller
     }
 
     [HttpPost]
-    public IActionResult ToggleLayer(int id)
+    public IActionResult ToggleLayer(int id, int accountId)
     {
-        var layer = _layers.FirstOrDefault(l => l.Id == id);
+        var layer = _layers.FirstOrDefault(l => l.Id == id && l.AccountId == accountId);
         if (layer != null)
         {
             layer.IsActive = !layer.IsActive;
@@ -341,14 +424,13 @@ public class ExpenseController : Controller
     }
 
     [HttpDelete]
-    public IActionResult DeleteLayer(int id)
+    public IActionResult DeleteLayer(int id, int accountId)
     {
-        var layer = _layers.FirstOrDefault(l => l.Id == id);
+        var layer = _layers.FirstOrDefault(l => l.Id == id && l.AccountId == accountId);
         if (layer != null)
         {
             _layers.Remove(layer);
-            // Optional: Also remove items associated with this layer or unassign them
-            _items.RemoveAll(i => i.LayerId == id);
+            _items.RemoveAll(i => i.LayerId == id && i.AccountId == accountId);
             return Json(new { success = true });
         }
         return NotFound();
@@ -357,10 +439,16 @@ public class ExpenseController : Controller
     [HttpPost]
     public IActionResult LoadFromStorage([FromBody] LoadStorageRequest request)
     {
+        _accounts = request.Accounts ?? new List<Account> { new Account { Id = 1, Name = "Default Account", Description = "Your primary money account" } };
         _items = request.Items ?? new List<Item>();
         _layers = request.Layers ?? new List<Layer>();
-        _balanceOverrides = request.BalanceOverrides ?? new Dictionary<string, decimal>();
+        _balanceOverrides = request.BalanceOverrides ?? new Dictionary<int, Dictionary<string, decimal>>();
         
+        if (_accounts.Any())
+        {
+            _nextAccountId = _accounts.Max(a => a.Id) + 1;
+        }
+
         if (_items.Any())
         {
             _nextId = _items.Max(e => e.Id) + 1;
@@ -385,36 +473,44 @@ public class ExpenseController : Controller
     [HttpGet]
     public IActionResult GetAllData()
     {
-        return Json(new { expenses = _items, layers = _layers, balanceOverrides = _balanceOverrides });
+        return Json(new { accounts = _accounts, expenses = _items, layers = _layers, balanceOverrides = _balanceOverrides });
     }
 
     [HttpPost]
     public IActionResult SetBalanceOverride([FromBody] BalanceOverrideRequest request)
     {
-        _balanceOverrides[request.Date] = request.Balance;
+        if (!_balanceOverrides.ContainsKey(request.AccountId))
+        {
+            _balanceOverrides[request.AccountId] = new Dictionary<string, decimal>();
+        }
+        _balanceOverrides[request.AccountId][request.Date] = request.Balance;
         return Json(new { success = true });
     }
 
     [HttpPost]
     public IActionResult ClearAll()
     {
-        _items.Clear();
-        _layers.Clear();
-        _balanceOverrides.Clear();
+        _accounts = new List<Account> { new Account { Id = 1, Name = "Default Account", Description = "Your primary money account" } };
+        _items = new List<Item>();
+        _layers = new List<Layer>();
+        _balanceOverrides = new Dictionary<int, Dictionary<string, decimal>>();
         _nextId = 1;
         _nextLayerId = 1;
+        _nextAccountId = 2;
         return Json(new { success = true });
     }
 
     public class LoadStorageRequest
     {
-        public List<Item> Items { get; set; } = new List<Item>();
-        public List<Layer> Layers { get; set; } = new List<Layer>();
-        public Dictionary<string, decimal> BalanceOverrides { get; set; } = new Dictionary<string, decimal>();
+        public List<Account>? Accounts { get; set; }
+        public List<Item>? Items { get; set; }
+        public List<Layer>? Layers { get; set; }
+        public Dictionary<int, Dictionary<string, decimal>>? BalanceOverrides { get; set; }
     }
 
     public class BalanceOverrideRequest
     {
+        public int AccountId { get; set; }
         public string Date { get; set; } = string.Empty;
         public decimal Balance { get; set; }
     }
@@ -422,7 +518,7 @@ public class ExpenseController : Controller
     [HttpPut]
     public IActionResult Update([FromBody] Item item)
     {
-        var existing = _items.FirstOrDefault(e => e.Id == item.Id);
+        var existing = _items.FirstOrDefault(e => e.Id == item.Id && e.AccountId == item.AccountId);
         if (existing != null)
         {
             existing.Date = item.Date;
@@ -443,7 +539,7 @@ public class ExpenseController : Controller
     [HttpPut]
     public IActionResult UpdateRecurring([FromBody] Item item, [FromQuery] string mode)
     {
-        var parentItem = _items.FirstOrDefault(e => e.Id == item.Id);
+        var parentItem = _items.FirstOrDefault(e => e.Id == item.Id && e.AccountId == item.AccountId);
         if (parentItem == null) return NotFound();
 
         var editMode = Enum.Parse<RecurringEditMode>(mode);
@@ -469,6 +565,7 @@ public class ExpenseController : Controller
                 var exception = new Item
                 {
                     Id = _nextId++,
+                    AccountId = item.AccountId,
                     Date = item.Date.Date,
                     Amount = item.Amount,
                     Description = item.Description,
@@ -508,6 +605,7 @@ public class ExpenseController : Controller
                 var newSeries = new Item
                 {
                     Id = _nextId++,
+                    AccountId = item.AccountId,
                     Date = editDate,
                     Amount = item.Amount,
                     Description = item.Description,
@@ -541,9 +639,9 @@ public class ExpenseController : Controller
     }
 
     [HttpDelete]
-    public IActionResult Delete(int id)
+    public IActionResult Delete(int id, int accountId)
     {
-        var item = _items.FirstOrDefault(e => e.Id == id);
+        var item = _items.FirstOrDefault(e => e.Id == id && e.AccountId == accountId);
         if (item != null)
         {
             _items.Remove(item);
@@ -553,9 +651,9 @@ public class ExpenseController : Controller
     }
 
     [HttpDelete]
-    public IActionResult DeleteRecurring(int id, string mode, DateTime date)
+    public IActionResult DeleteRecurring(int id, int accountId, string mode, DateTime date)
     {
-        var parentItem = _items.FirstOrDefault(e => e.Id == id);
+        var parentItem = _items.FirstOrDefault(e => e.Id == id && e.AccountId == accountId);
         if (parentItem == null) return NotFound();
 
         var deleteMode = Enum.Parse<RecurringEditMode>(mode);
@@ -580,6 +678,7 @@ public class ExpenseController : Controller
                 var exception = new Item
                 {
                     Id = _nextId++,
+                    AccountId = accountId,
                     Date = date.Date,
                     Amount = 0,
                     Description = "[DELETED]",
@@ -597,7 +696,7 @@ public class ExpenseController : Controller
                 if (parentItem.Date.Date == date.Date)
                 {
                     _items.Remove(parentItem);
-                    _items.RemoveAll(e => e.ParentRecurringItemId == id);
+                    _items.RemoveAll(e => e.ParentRecurringItemId == id && e.AccountId == accountId);
                     return Ok();
                 }
 
@@ -613,7 +712,7 @@ public class ExpenseController : Controller
                 // Delete the entire series
                 _items.Remove(parentItem);
                 // Also remove any exceptions
-                _items.RemoveAll(e => e.ParentRecurringItemId == id);
+                _items.RemoveAll(e => e.ParentRecurringItemId == id && e.AccountId == accountId);
                 return Ok();
 
             default:

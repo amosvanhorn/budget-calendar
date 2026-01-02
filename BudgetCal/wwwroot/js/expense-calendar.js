@@ -1,16 +1,25 @@
 let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth() + 1;
+let currentAccountId = 1;
 let expenses = [];
 let layers = [];
+let accounts = [];
 let defaultLayerActive = true;
 let dailyBalances = {};
 let currentExpense = null;
+let currentAccount = null;
 let recurringEditMode = null;
 let balanceOverrides = {};
 let currentBalanceDate = null;
 const STORAGE_KEY = 'budget_calendar_data';
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Get accountId from the dropdown which was set by ViewBag
+    const accountSelector = document.getElementById('accountSelector');
+    if (accountSelector) {
+        currentAccountId = parseInt(accountSelector.value);
+    }
+
     loadStorageToServer().then(() => {
         // Initialize sidebar state
         const stored = localStorage.getItem(STORAGE_KEY);
@@ -43,12 +52,25 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('cancelBalanceBtn').addEventListener('click', closeBalanceModal);
     document.getElementById('cancelExpenseBtn').addEventListener('click', closeModal);
     document.getElementById('balanceForm').addEventListener('submit', saveBalanceOverride);
-    document.getElementById('addLayerBtn').addEventListener('click', openLayerModal);
+    document.getElementById('addLayerBtn').addEventListener('click', () => openLayerModal());
     document.getElementById('toggleSidebarBtn').addEventListener('click', toggleSidebar);
     document.getElementById('expandSidebarBtn').addEventListener('click', toggleSidebar);
     document.getElementById('layerForm').addEventListener('submit', createLayer);
     document.getElementById('closeLayerModal').addEventListener('click', closeLayerModal);
     document.getElementById('cancelLayerBtn').addEventListener('click', closeLayerModal);
+
+    // Account Management events
+    if (accountSelector) {
+        accountSelector.addEventListener('change', (e) => {
+            currentAccountId = parseInt(e.target.value);
+            loadExpenses();
+        });
+    }
+
+    document.getElementById('manageAccountsBtn').addEventListener('click', openAccountModal);
+    document.getElementById('closeAccountModal').addEventListener('click', closeAccountModal);
+    document.getElementById('accountForm').addEventListener('submit', saveAccount);
+    document.getElementById('resetAccountForm').addEventListener('click', resetAccountForm);
 
     // Color picker logic
     document.querySelectorAll('.color-square').forEach(square => {
@@ -79,6 +101,7 @@ function loadStorageToServer() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    accounts: data.accounts || [],
                     items: data.expenses || [],
                     layers: data.layers || [],
                     balanceOverrides: data.balanceOverrides || {}
@@ -135,16 +158,145 @@ function toggleSidebar() {
     }
 }
 
+function openAccountModal() {
+    document.getElementById('accountModal').style.display = 'block';
+    loadAccounts();
+}
+
+function closeAccountModal() {
+    document.getElementById('accountModal').style.display = 'none';
+    resetAccountForm();
+}
+
+function loadAccounts() {
+    fetch('/Expense/GetAccounts')
+        .then(response => response.json())
+        .then(data => {
+            accounts = data;
+            renderAccounts();
+            updateAccountSelector();
+        });
+}
+
+function renderAccounts() {
+    const tbody = document.getElementById('accountTableBody');
+    tbody.innerHTML = '';
+    
+    accounts.forEach(account => {
+        const tr = document.createElement('tr');
+        if (account.id === currentAccountId) tr.classList.add('current-account-row');
+        
+        tr.innerHTML = `
+            <td>${account.name}</td>
+            <td>${account.startDate.split('T')[0]}</td>
+            <td>$${account.startingBalance.toFixed(2)}</td>
+            <td>
+                <button class="btn-icon-small" onclick="editAccount(${account.id})" title="Edit">✏️</button>
+                ${accounts.length > 1 ? `<button class="btn-icon-small danger" onclick="deleteAccount(${account.id})" title="Delete">🗑️</button>` : ''}
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function updateAccountSelector() {
+    const selector = document.getElementById('accountSelector');
+    if (!selector) return;
+    
+    const prevValue = selector.value;
+    selector.innerHTML = '';
+    
+    accounts.forEach(account => {
+        const option = document.createElement('option');
+        option.value = account.id;
+        option.textContent = account.name;
+        if (account.id === currentAccountId) option.selected = true;
+        selector.appendChild(option);
+    });
+}
+
+function editAccount(id) {
+    const account = accounts.find(a => a.id === id);
+    if (!account) return;
+    
+    document.getElementById('editAccountId').value = account.id;
+    document.getElementById('accountName').value = account.name;
+    document.getElementById('accountStartBalance').value = account.startingBalance;
+    document.getElementById('accountStartDate').value = account.startDate.split('T')[0];
+    document.getElementById('accountDescription').value = account.description || '';
+    
+    document.getElementById('accountFormTitle').textContent = 'Edit Account';
+    document.getElementById('saveAccountBtn').textContent = 'UPDATE ACCOUNT';
+    document.getElementById('resetAccountForm').style.display = 'inline-block';
+}
+
+function resetAccountForm() {
+    document.getElementById('editAccountId').value = '';
+    document.getElementById('accountForm').reset();
+    document.getElementById('accountFormTitle').textContent = 'Add New Account';
+    document.getElementById('saveAccountBtn').textContent = 'CREATE ACCOUNT';
+    document.getElementById('resetAccountForm').style.display = 'none';
+}
+
+function saveAccount(e) {
+    e.preventDefault();
+    
+    const id = document.getElementById('editAccountId').value;
+    const account = {
+        id: id ? parseInt(id) : 0,
+        name: document.getElementById('accountName').value,
+        startingBalance: parseFloat(document.getElementById('accountStartBalance').value),
+        startDate: document.getElementById('accountStartDate').value,
+        description: document.getElementById('accountDescription').value
+    };
+    
+    const url = id ? '/Expense/UpdateAccount' : '/Expense/CreateAccount';
+    const method = id ? 'PUT' : 'POST';
+    
+    fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(account)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resetAccountForm();
+            loadAccounts();
+            saveToLocalStorage();
+        }
+    });
+}
+
+function deleteAccount(id) {
+    if (id === currentAccountId) {
+        alert('Cannot delete the currently active account. Switch to another account first.');
+        return;
+    }
+    
+    if (!confirm('Are you sure you want to delete this account? All associated items and layers will be permanently removed.')) return;
+    
+    fetch(`/Expense/DeleteAccount?id=${id}`, { method: 'DELETE' })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadAccounts();
+            saveToLocalStorage();
+        }
+    });
+}
+
 function loadExpenses() {
     Promise.all([
-        fetch(`/Expense/GetExpenses?year=${currentYear}&month=${currentMonth}&defaultActive=${defaultLayerActive}`).then(r => r.json()),
-        fetch(`/Expense/GetDailyBalances?year=${currentYear}&month=${currentMonth}&defaultActive=${defaultLayerActive}`).then(r => r.json()),
+        fetch(`/Expense/GetExpenses?year=${currentYear}&month=${currentMonth}&accountId=${currentAccountId}&defaultActive=${defaultLayerActive}`).then(r => r.json()),
+        fetch(`/Expense/GetDailyBalances?year=${currentYear}&month=${currentMonth}&accountId=${currentAccountId}&defaultActive=${defaultLayerActive}`).then(r => r.json()),
         fetch(`/Expense/GetLayers`).then(r => r.json())
     ])
     .then(([expensesData, balancesData, layersData]) => {
         expenses = expensesData;
         dailyBalances = balancesData;
-        layers = layersData;
+        // Filter layers for current account
+        layers = layersData.filter(l => l.accountId === currentAccountId);
         updateMonthDisplay();
         renderCalendar();
         renderLayers();
@@ -277,6 +429,7 @@ function saveBalanceOverride(e) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+            accountId: currentAccountId,
             date: currentBalanceDate,
             balance: balance
         })
@@ -444,6 +597,7 @@ function saveExpense(e) {
 
     const expense = {
         id: expenseId ? parseInt(expenseId) : 0,
+        accountId: currentAccountId,
         date: expenseDate,
         amount: parseFloat(document.getElementById('expenseAmount').value),
         description: document.getElementById('expenseDescription').value,
@@ -502,7 +656,7 @@ function deleteExpense() {
     // Otherwise, just confirm and delete
     if (!confirm('Are you sure you want to delete this item?')) return;
 
-    fetch(`/Expense/Delete?id=${expenseId}`, { method: 'DELETE' })
+    fetch(`/Expense/Delete?id=${expenseId}&accountId=${currentAccountId}`, { method: 'DELETE' })
         .then(() => {
             closeModal();
             saveToLocalStorage();
@@ -537,7 +691,7 @@ function showRecurringDeleteDialog(expenseId) {
 function performRecurringDelete(expenseId, mode) {
     const expense = currentExpense || expenses.find(e => e.id === parseInt(expenseId));
     
-    fetch(`/Expense/DeleteRecurring?id=${expenseId}&mode=${mode}&date=${expense.date}`, { 
+    fetch(`/Expense/DeleteRecurring?id=${expenseId}&accountId=${currentAccountId}&mode=${mode}&date=${expense.date}`, { 
         method: 'DELETE' 
     })
     .then(() => {
@@ -637,7 +791,7 @@ function createLayer(e) {
         fetch('/Expense/UpdateLayer', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: parseInt(editId), name: name })
+            body: JSON.stringify({ id: parseInt(editId), accountId: currentAccountId, name: name })
         })
         .then(response => response.json())
         .then(() => {
@@ -649,7 +803,7 @@ function createLayer(e) {
         fetch('/Expense/CreateLayer', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name, isActive: true })
+            body: JSON.stringify({ accountId: currentAccountId, name: name, isActive: true })
         })
         .then(response => response.json())
         .then(() => {
@@ -692,9 +846,14 @@ function renderLayers() {
         `;
         
         item.addEventListener('click', (e) => {
-            if (e.target.classList.contains('btn-delete-layer')) {
+            const deleteBtn = e.target.closest('.btn-delete-layer');
+            const editBtn = e.target.closest('.btn-edit-layer');
+            
+            if (deleteBtn) {
+                e.stopPropagation();
                 deleteLayer(layer.id);
-            } else if (e.target.classList.contains('btn-edit-layer')) {
+            } else if (editBtn) {
+                e.stopPropagation();
                 openLayerModal(layer);
             } else {
                 toggleLayer(layer.id);
@@ -706,7 +865,7 @@ function renderLayers() {
 }
 
 function toggleLayer(id) {
-    fetch(`/Expense/ToggleLayer?id=${id}`, { method: 'POST' })
+    fetch(`/Expense/ToggleLayer?id=${id}&accountId=${currentAccountId}`, { method: 'POST' })
     .then(() => {
         saveToLocalStorage();
         loadExpenses();
@@ -716,7 +875,7 @@ function toggleLayer(id) {
 function deleteLayer(id) {
     if (!confirm('Are you sure you want to delete this layer? Items in this layer will be removed.')) return;
     
-    fetch(`/Expense/DeleteLayer?id=${id}`, { method: 'DELETE' })
+    fetch(`/Expense/DeleteLayer?id=${id}&accountId=${currentAccountId}`, { method: 'DELETE' })
     .then(() => {
         saveToLocalStorage();
         loadExpenses();
