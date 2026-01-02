@@ -131,14 +131,9 @@ function saveToLocalStorage() {
 }
 
 function navigateMonth(direction) {
-    currentMonth += direction;
-    if (currentMonth > 12) {
-        currentMonth = 1;
-        currentYear++;
-    } else if (currentMonth < 1) {
-        currentMonth = 12;
-        currentYear--;
-    }
+    const updated = updateMonth(currentYear, currentMonth, direction);
+    currentYear = updated.year;
+    currentMonth = updated.month;
     loadExpenses();
 }
 
@@ -352,7 +347,7 @@ function createDayCell(day) {
     const itemsWrapper = document.createElement('div');
     itemsWrapper.className = 'items-wrapper';
 
-    const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const dateStr = formatDate(currentYear, currentMonth, day);
     const dayExpenses = expenses.filter(e => e.date.startsWith(dateStr));
 
     dayExpenses.forEach(expense => {
@@ -739,6 +734,57 @@ function getContrastColor(hexColor) {
 
 function getSoftColor(hexColor) {
     return softColorMap[hexColor.toLowerCase()] || hexColor;
+}
+
+function updateMonth(year, month, direction) {
+    month += direction;
+    if (month > 12) {
+        month = 1;
+        year++;
+    } else if (month < 1) {
+        month = 12;
+        year--;
+    }
+    return { year, month };
+}
+
+function formatDate(year, month, day) {
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function calculateDailyBalances(startingBalance, startDateStr, expenses) {
+    // Sort expenses by date
+    const sortedExpenses = [...expenses].sort((a, b) => a.date.localeCompare(b.date));
+    
+    const balances = {};
+    let currentBalance = startingBalance;
+    let currentDate = new Date(startDateStr);
+    
+    // This is a simplified version for demonstration/testing
+    // The actual logic on the server is more complex due to recurring items and overrides
+    // But we can test basic accumulation
+    
+    sortedExpenses.forEach(exp => {
+        const amount = exp.type === 'Debit' ? -exp.amount : exp.amount;
+        currentBalance += amount;
+        const dateKey = exp.date.split('T')[0];
+        balances[dateKey] = currentBalance;
+    });
+    
+    return balances;
+}
+
+// Export for testing if in a CommonJS environment
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        getContrastColor,
+        getSoftColor,
+        colorTextMap,
+        softColorMap,
+        updateMonth,
+        formatDate,
+        calculateDailyBalances
+    };
 }
 
 function clearAllData() {
