@@ -73,11 +73,27 @@ Currently, standard `dotnet` CLI commands are used for all lifecycle tasks. No c
     - `Production`: Optimized for deployment.
 
 ## 🧪 Tests
-- 📝 **TODO:** Add a test project (e.g., xUnit or NUnit).
-- To run tests (once added):
-  ```bash
-  dotnet test
-  ```
+The project uses NUnit for unit tests and Playwright for UI testing.
+
+### Run Unit Tests
+```bash
+dotnet test BudgetCal.Tests
+```
+
+### Run UI Tests
+Before running UI tests, ensure the application is running.
+
+1. Start the application:
+   ```bash
+   dotnet run --project BudgetCal
+   ```
+
+2. In another terminal, run the UI tests:
+   ```bash
+   dotnet test BudgetCal.UITests
+   ```
+
+*Note: The UI tests use Playwright and require browsers to be installed. They are installed during the setup process, but you can manually install them using `pwsh bin/Debug/net10.0/playwright.ps1 install` if needed.*
 
 ## 📂 Project Structure
 ```text
@@ -87,10 +103,10 @@ budget-calendar/
 │   ├── Models/               # Data models (Expense, AccountBalance, etc.)
 │   ├── Views/                # Razor Views
 │   ├── wwwroot/              # Static files (JS, CSS, Libs)
-│   │   ├── js/               # Custom JavaScript (expense-calendar.js)
-│   │   └── lib/              # Client-side libraries (Bootstrap, jQuery)
 │   ├── Program.cs            # Application entry point
 │   └── BudgetCal.csproj      # Project configuration and NuGet packages
+├── BudgetCal.Tests/          # Unit tests for the application
+├── BudgetCal.UITests/        # UI tests using Playwright
 ├── BudgetCal.sln             # Visual Studio Solution file
 └── README.md                 # This file
 ```

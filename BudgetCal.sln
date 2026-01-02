@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BudgetCal", "BudgetCal\Budg
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BudgetCal.Tests", "BudgetCal.Tests\BudgetCal.Tests.csproj", "{2A1BCB50-810F-4E59-8179-065E78F57936}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BudgetCal.UITests", "BudgetCal.UITests\BudgetCal.UITests.csproj", "{4E92855C-1601-4755-8F2D-90EE9165F685}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -38,6 +40,18 @@ Global
 		{2A1BCB50-810F-4E59-8179-065E78F57936}.Release|x64.Build.0 = Release|Any CPU
 		{2A1BCB50-810F-4E59-8179-065E78F57936}.Release|x86.ActiveCfg = Release|Any CPU
 		{2A1BCB50-810F-4E59-8179-065E78F57936}.Release|x86.Build.0 = Release|Any CPU
+		{4E92855C-1601-4755-8F2D-90EE9165F685}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4E92855C-1601-4755-8F2D-90EE9165F685}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4E92855C-1601-4755-8F2D-90EE9165F685}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4E92855C-1601-4755-8F2D-90EE9165F685}.Debug|x64.Build.0 = Debug|Any CPU
+		{4E92855C-1601-4755-8F2D-90EE9165F685}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4E92855C-1601-4755-8F2D-90EE9165F685}.Debug|x86.Build.0 = Debug|Any CPU
+		{4E92855C-1601-4755-8F2D-90EE9165F685}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4E92855C-1601-4755-8F2D-90EE9165F685}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4E92855C-1601-4755-8F2D-90EE9165F685}.Release|x64.ActiveCfg = Release|Any CPU
+		{4E92855C-1601-4755-8F2D-90EE9165F685}.Release|x64.Build.0 = Release|Any CPU
+		{4E92855C-1601-4755-8F2D-90EE9165F685}.Release|x86.ActiveCfg = Release|Any CPU
+		{4E92855C-1601-4755-8F2D-90EE9165F685}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
