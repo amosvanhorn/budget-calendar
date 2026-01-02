@@ -153,9 +153,32 @@ public class ExpenseController : Controller
             var currentDate = recurringStart;
 
             // Advance to first occurrence in the period
-            while (currentDate < startDate)
+            if (currentDate < startDate)
             {
-                currentDate = AddRecurringInterval(currentDate, recurring.RecurringInterval!.Value, recurring.RecurringPeriod!);
+                // Optimization: skip iterations if currentDate is far before startDate
+                if (recurring.RecurringPeriod == "days")
+                {
+                    var daysDiff = (startDate - currentDate).Days;
+                    var intervalsToSkip = daysDiff / recurring.RecurringInterval!.Value;
+                    currentDate = currentDate.AddDays(intervalsToSkip * recurring.RecurringInterval.Value);
+                }
+                else if (recurring.RecurringPeriod == "weeks")
+                {
+                    var daysDiff = (startDate - currentDate).Days;
+                    var intervalsToSkip = daysDiff / (7 * recurring.RecurringInterval!.Value);
+                    currentDate = currentDate.AddDays(intervalsToSkip * 7 * recurring.RecurringInterval.Value);
+                }
+                else if (recurring.RecurringPeriod == "months")
+                {
+                    var monthsDiff = ((startDate.Year - currentDate.Year) * 12) + startDate.Month - currentDate.Month;
+                    var intervalsToSkip = Math.Max(0, (monthsDiff - 1) / recurring.RecurringInterval!.Value);
+                    currentDate = currentDate.AddMonths(intervalsToSkip * recurring.RecurringInterval.Value);
+                }
+
+                while (currentDate < startDate)
+                {
+                    currentDate = AddRecurringInterval(currentDate, recurring.RecurringInterval!.Value, recurring.RecurringPeriod!);
+                }
             }
 
             // Generate all occurrences within the period
@@ -304,11 +327,13 @@ public class ExpenseController : Controller
         var totalDebits = _items
             .Where(e => e.AccountId == accountId && e.Date >= startDate && e.Date.Date <= date.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Debit)
             .Where(e => (e.LayerId.HasValue && activeLayerIds.Contains(e.LayerId)) || (!e.LayerId.HasValue && defaultActive))
+            .ToList()
             .Sum(e => e.Amount);
 
         var totalCredits = _items
             .Where(e => e.AccountId == accountId && e.Date >= startDate && e.Date.Date <= date.Date && !e.IsRecurring && !e.IsException && e.Type == TransactionType.Credit)
             .Where(e => (e.LayerId.HasValue && activeLayerIds.Contains(e.LayerId)) || (!e.LayerId.HasValue && defaultActive))
+            .ToList()
             .Sum(e => e.Amount);
 
         // Add recurring items up to this date (includes exceptions)
@@ -466,9 +491,9 @@ public class ExpenseController : Controller
     public IActionResult ClearAll()
     {
         _accounts = new List<Account> { new Account { Id = 1, Name = "Default Account", Description = "Your primary money account" } };
-        _items.Clear();
-        _layers.Clear();
-        _balanceOverrides.Clear();
+        _items = new List<Item>();
+        _layers = new List<Layer>();
+        _balanceOverrides = new Dictionary<int, Dictionary<string, decimal>>();
         _nextId = 1;
         _nextLayerId = 1;
         _nextAccountId = 2;
