@@ -741,6 +741,16 @@ function getSoftColor(hexColor) {
     return softColorMap[hexColor.toLowerCase()] || hexColor;
 }
 
+// Export for testing if in a CommonJS environment
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        getContrastColor,
+        getSoftColor,
+        colorTextMap,
+        softColorMap
+    };
+}
+
 function clearAllData() {
     if (!confirm('Are you sure you want to delete ALL items and layers? This cannot be undone.')) {
         return;
