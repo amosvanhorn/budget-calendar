@@ -15,6 +15,28 @@ public class ExpenseControllerEdgeCaseTests
         return controller;
     }
 
+    [Fact]
+    public void UpdateRecurring_InvalidMode_ReturnsBadRequest()
+    {
+        // Arrange
+        var controller = CreateController();
+        controller.Create(new Item { Id = 1, AccountId = 1, Date = DateTime.Today });
+        
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => controller.UpdateRecurring(new Item { Id = 1, AccountId = 1 }, "InvalidMode"));
+    }
+
+    [Fact]
+    public void DeleteRecurring_InvalidMode_ThrowsArgumentException()
+    {
+        // Arrange
+        var controller = CreateController();
+        controller.Create(new Item { Id = 1, AccountId = 1, Date = DateTime.Today });
+        
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => controller.DeleteRecurring(1, 1, "InvalidMode", DateTime.Today));
+    }
+
     #region Update and Delete Basic Operations
 
     [Fact]

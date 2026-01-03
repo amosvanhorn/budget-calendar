@@ -2,6 +2,7 @@ using BudgetCal.Controllers;
 using BudgetCal.Models;
 using Microsoft.AspNetCore.Mvc;
 using Xunit;
+using System.Reflection;
 
 namespace BudgetCal.Tests;
 
@@ -13,6 +14,223 @@ public class ExpenseControllerTests
         var controller = new ExpenseController();
         controller.ClearAll(); // Reset static state before each test
         return controller;
+    }
+
+    [Fact]
+    public void Index_ReturnsViewResult_WithVariousParameters()
+    {
+        // Arrange
+        var controller = CreateController();
+
+        // Act - Default
+        var result1 = controller.Index(null, null, null);
+        
+        // Act - With Parameters
+        var result2 = controller.Index(2026, 5, 1);
+
+        // Assert
+        var viewResult1 = Assert.IsType<ViewResult>(result1);
+        Assert.NotNull(viewResult1.Model);
+        Assert.Equal(DateTime.Now.Year, controller.ViewBag.Year);
+
+        var viewResult2 = Assert.IsType<ViewResult>(result2);
+        Assert.Equal(2026, controller.ViewBag.Year);
+        Assert.Equal(5, controller.ViewBag.Month);
+        Assert.Equal(1, controller.ViewBag.AccountId);
+        Assert.Equal("May 2026", controller.ViewBag.MonthName);
+    }
+
+    [Fact]
+    public void SubtractRecurringInterval_CoversAllBranches()
+    {
+        var controller = CreateController();
+        var date = new DateTime(2026, 1, 10);
+        
+        // Use reflection to access private method
+        var method = typeof(ExpenseController).GetMethod("SubtractRecurringInterval", BindingFlags.NonPublic | BindingFlags.Instance);
+        
+        Assert.Equal(new DateTime(2026, 1, 9), method.Invoke(controller, new object[] { date, 1, "days" }));
+        Assert.Equal(new DateTime(2026, 1, 3), method.Invoke(controller, new object[] { date, 1, "weeks" }));
+        Assert.Equal(new DateTime(2025, 12, 10), method.Invoke(controller, new object[] { date, 1, "months" }));
+        Assert.Equal(new DateTime(2025, 1, 10), method.Invoke(controller, new object[] { date, 1, "years" }));
+        Assert.Equal(date, method.Invoke(controller, new object[] { date, 1, "invalid" }));
+    }
+
+    [Fact]
+    public void AddRecurringInterval_CoversDefaultBranch()
+    {
+        var controller = CreateController();
+        var date = new DateTime(2026, 1, 10);
+        
+        var method = typeof(ExpenseController).GetMethod("AddRecurringInterval", BindingFlags.NonPublic | BindingFlags.Instance);
+        
+        Assert.Equal(date, method.Invoke(controller, new object[] { date, 1, "invalid" }));
+    }
+
+    [Fact]
+    public void CalculateBalanceFromDate_CorrectlyCalculatesRange()
+    {
+        // Arrange
+        var controller = CreateController();
+        var fromDate = new DateTime(2026, 1, 1);
+        var toDate = new DateTime(2026, 1, 10);
+        
+        // Add items in range
+        controller.Create(new Item { AccountId = 1, Date = new DateTime(2026, 1, 5), Amount = 50m, Type = TransactionType.Debit });
+        controller.Create(new Item { AccountId = 1, Date = new DateTime(2026, 1, 6), Amount = 20m, Type = TransactionType.Credit });
+        
+        // Add item outside range (should be ignored)
+        controller.Create(new Item { AccountId = 1, Date = new DateTime(2026, 1, 15), Amount = 100m, Type = TransactionType.Debit });
+
+        // Use reflection to access private method
+        var method = typeof(ExpenseController).GetMethod("CalculateBalanceFromDate", BindingFlags.NonPublic | BindingFlags.Instance);
+        
+        // Act
+        // fromBalance = 1000, -50 + 20 = 970
+        var result = (decimal)method.Invoke(controller, new object[] { fromDate, 1000m, toDate, 1, true });
+
+        // Assert
+        Assert.Equal(970m, result);
+    }
+
+    [Fact]
+    public void UpdateRecurring_ThisOne_FirstOccurrence_MovesSeriesStart()
+    {
+        // Arrange
+        var controller = CreateController();
+        var start = new DateTime(2026, 1, 1);
+        controller.Create(new Item
+        {
+            AccountId = 1,
+            Date = start,
+            Amount = 50m,
+            Description = "Weekly Gym",
+            IsRecurring = true,
+            RecurringInterval = 1,
+            RecurringPeriod = "weeks",
+            RecurringStartDate = start
+        });
+
+        var updateInfo = new Item
+        {
+            Id = 1, // Parent Id
+            AccountId = 1,
+            Date = start, // Updating the VERY FIRST one
+            Amount = 60m,
+            Description = "Weekly Gym (Special)",
+            Type = TransactionType.Debit
+        };
+
+        // Act
+        controller.UpdateRecurring(updateInfo, "ThisOne");
+
+        // Assert
+        var allItems = Assert.IsAssignableFrom<IEnumerable<Item>>(Assert.IsType<JsonResult>(controller.GetAllExpenses(1)).Value).ToList();
+        var parentItem = allItems.First(i => i.Id == 1);
+        
+        // Parent should have moved to Jan 8
+        Assert.Equal(new DateTime(2026, 1, 8), parentItem.Date);
+        Assert.Equal(new DateTime(2026, 1, 8), parentItem.RecurringStartDate);
+
+        // Exception should exist for Jan 1
+        Assert.Contains(allItems, i => i.IsException && i.Date == start && i.Amount == 60m);
+    }
+
+    [Fact]
+    public void UpdateRecurring_FromThisOne_FirstOccurrence_UpdatesWholeSeries()
+    {
+        // Arrange
+        var controller = CreateController();
+        var start = new DateTime(2026, 1, 1);
+        controller.Create(new Item
+        {
+            AccountId = 1,
+            Date = start,
+            Amount = 50m,
+            Description = "Weekly Gym",
+            IsRecurring = true,
+            RecurringInterval = 1,
+            RecurringPeriod = "weeks",
+            RecurringStartDate = start
+        });
+
+        var updateInfo = new Item
+        {
+            Id = 1,
+            AccountId = 1,
+            Date = start, // Updating from the start
+            Amount = 75m,
+            Description = "Updated Gym",
+            RecurringInterval = 2,
+            RecurringPeriod = "weeks"
+        };
+
+        // Act
+        controller.UpdateRecurring(updateInfo, "FromThisOne");
+
+        // Assert
+        var allItems = Assert.IsAssignableFrom<IEnumerable<Item>>(Assert.IsType<JsonResult>(controller.GetAllExpenses(1)).Value).ToList();
+        var parentItem = allItems.First(i => i.Id == 1);
+        
+        Assert.Equal(75m, parentItem.Amount);
+        Assert.Equal("Updated Gym", parentItem.Description);
+        Assert.Equal(2, parentItem.RecurringInterval);
+    }
+
+    [Fact]
+    public void DeleteRecurring_ThisOne_FirstOccurrence_MovesSeriesStart()
+    {
+        // Arrange
+        var controller = CreateController();
+        var start = new DateTime(2026, 1, 1);
+        controller.Create(new Item
+        {
+            AccountId = 1,
+            Date = start,
+            Amount = 50m,
+            Description = "Weekly Gym",
+            IsRecurring = true,
+            RecurringInterval = 1,
+            RecurringPeriod = "weeks",
+            RecurringStartDate = start
+        });
+
+        // Act
+        controller.DeleteRecurring(1, 1, "ThisOne", start);
+
+        // Assert
+        var allItems = Assert.IsAssignableFrom<IEnumerable<Item>>(Assert.IsType<JsonResult>(controller.GetAllExpenses(1)).Value).ToList();
+        var parentItem = allItems.First(i => i.Id == 1);
+        
+        // Parent should have moved to Jan 8
+        Assert.Equal(new DateTime(2026, 1, 8), parentItem.Date);
+        Assert.Equal(new DateTime(2026, 1, 8), parentItem.RecurringStartDate);
+    }
+
+    [Fact]
+    public void DeleteRecurring_FromThisOne_FirstOccurrence_RemovesSeries()
+    {
+        // Arrange
+        var controller = CreateController();
+        var start = new DateTime(2026, 1, 1);
+        controller.Create(new Item
+        {
+            AccountId = 1,
+            Date = start,
+            Amount = 50m,
+            Description = "Weekly Gym",
+            IsRecurring = true,
+            RecurringInterval = 1,
+            RecurringPeriod = "weeks",
+            RecurringStartDate = start
+        });
+
+        // Act
+        controller.DeleteRecurring(1, 1, "FromThisOne", start);
+
+        // Assert
+        var allItems = Assert.IsAssignableFrom<IEnumerable<Item>>(Assert.IsType<JsonResult>(controller.GetAllExpenses(1)).Value).ToList();
+        Assert.Empty(allItems);
     }
 
     [Fact]
