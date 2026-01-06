@@ -1,4 +1,4 @@
-# 💰 BudgetCal
+# 💰 CashCal
 
 [![Build Status](https://img.shields.io/badge/Build-passing-brightgreen.svg)]()
 [![.NET Version](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
