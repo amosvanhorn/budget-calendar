@@ -4,7 +4,7 @@
 [![.NET Version](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-BudgetCal is a modern ASP.NET Core MVC application designed for seamless expense management and financial visualization. Track your spending, manage account balances, and plan your budget with an intuitive calendar interface.
+CashCal is a modern ASP.NET Core MVC application designed for seamless expense management and financial visualization. Track your spending, manage account balances, and plan your budget with an intuitive calendar interface.
 
 ## 📌 Table of Contents
 - [🔍 Overview](#-overview)
